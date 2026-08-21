@@ -190,11 +190,11 @@ AWS CLI v2 was installed and a named profile `floci` was created pointing `endpo
 
 `scripts/utilities/floci-storage-check.sh` was written as a six-section, read-only diagnostic tool.
 
-> 📸 **Screenshot — Step 15.1:** `floci-storage-check.sh` output — all six sections `[ok]`
+> **Screenshot - Step 15.1:** `floci-storage-check.sh` output — all six sections `[ok]`
 >
-> ![storage check](screenshots/13-storage-check.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 17-14-29.png>)
 
-**Checkpoint 6 — End of Part A**
+**Checkpoint 6 - End of Part A**
 
 - [x] Docker + Compose v2 running
 - [x] Floci Compose-managed, hybrid storage, port 4566
@@ -203,13 +203,13 @@ AWS CLI v2 was installed and a named profile `floci` was created pointing `endpo
 - [x] Isolation proven three ways
 - [x] Project structure, README, scripts committed to Git
 
-> 📸 **Screenshot:** `git log --oneline` showing the `.gitignore` commit as the oldest entry
+> **Screenshot:** `git log --oneline` showing the `.gitignore` commit as the oldest entry
 >
-> ![git log part a](screenshots/14-git-log-parta.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 17-16-44.png>)
 
 ---
 
-## 4. Part B — IAM Foundation
+## 4. Part B - IAM Foundation
 
 ### 4.1 IAM Concepts
 
@@ -249,107 +249,112 @@ arn:aws:iam::000000000000:user/usms-dev-01
 usms-admins, usms-developers, usms-auditors
 ```
 
-> 📸 **Screenshot — Step 18:** `aws iam list-groups --query 'Groups[*].[GroupName,Arn]' --output table`
+> **Screenshot - Step 18:** `aws iam list-groups --query 'Groups[*].[GroupName,Arn]' --output table`
 >
-> ![groups created](screenshots/15-groups-created.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 17-30-05.png>)
 
 ### 4.4 Users and ARNs
 
 Users were created with `--tags` and their ARNs captured directly into shell variables using `--query`/`--output text` (never copied by hand).
 
-> 📸 **Screenshot — Step 19:** `aws iam list-users --query 'Users[*].{User:UserName,Created:CreateDate,Arn:Arn}' --output table`
+> **Screenshot - Step 19:** `aws iam list-users --query 'Users[*].{User:UserName,Created:CreateDate,Arn:Arn}' --output table`
 >
-> ![users created](screenshots/16-users-created.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 17-31-43.png>)
 
-**Independent task result — `usms-intern-01`:**
-> *(fill in ARN and UserId captured for the practice user)*
+**Independent task result - `usms-intern-01`:**
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 17-33-15.png>)
 
 ### 4.5 Group Membership
 
 Verified from **both directions** (group → users, and user → groups), which is the correct approach during a real access investigation.
 
-> 📸 **Screenshot — Step 20:** `aws iam get-group` and `aws iam list-groups-for-user` outputs
+> **Screenshot - Step 20:** `aws iam get-group` and `aws iam list-groups-for-user` outputs
 >
-> ![group membership](screenshots/17-group-membership.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 17-37-37.png>)
 
-### 4.6 AWS Managed Policy — Auditors
+**Independent task result**
+
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 17-39-39.png>)
+
+### 4.6 AWS Managed Policy - Auditors
 
 `ReadOnlyAccess` (AWS managed) was attached to `usms-auditors`.
 *(If unavailable in this Floci build: `USMSReadOnly`, a customer managed equivalent, was created and attached instead — see note below.)*
 
-> 📸 **Screenshot — Step 21:** `aws iam list-attached-group-policies --group-name usms-auditors`
+> **Screenshot - Step 21:** `aws iam list-attached-group-policies --group-name usms-auditors`
 >
-> ![auditor policy](screenshots/18-auditor-policy.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 17-48-45.png>)
 
-### 4.7 Customer Managed Policy — `USMSDeveloperBase`
+### 4.7 Customer Managed Policy - `USMSDeveloperBase`
 
 Written with three statements:
-1. `ReadInfrastructure` — broad read-only access (IAM, EC2, S3, CloudWatch, Logs)
-2. `BuildNetworkingForLab02` — narrow, enumerated EC2/VPC write actions, scoped to `us-east-1` via a `Condition`
-3. `DenyDangerousIdentityChanges` — **explicit Deny** on privilege-escalation actions (`iam:CreateUser`, `iam:AttachUserPolicy`, etc.) — this holds even if a broader policy is attached later, because explicit deny always wins
+1. `ReadInfrastructure` - broad read-only access (IAM, EC2, S3, CloudWatch, Logs)
+2. `BuildNetworkingForLab02` - narrow, enumerated EC2/VPC write actions, scoped to `us-east-1` via a `Condition`
+3. `DenyDangerousIdentityChanges` - **explicit Deny** on privilege-escalation actions (`iam:CreateUser`, `iam:AttachUserPolicy`, etc.) - this holds even if a broader policy is attached later, because explicit deny always wins
 
 Attached to both `usms-developers` and `usms-admins`.
 
-> 📸 **Screenshot — Step 22:** `python3 -m json.tool` validation + `aws iam get-policy --query '...AttachmentCount...'` showing `Attached: 2`
+> **Screenshot - Step 22:** `python3 -m json.tool` validation + `aws iam get-policy --query '...AttachmentCount...'` showing `Attached: 2`
 >
-> ![developer base policy](screenshots/19-dev-base-policy.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 17-52-43.png>)
 
-### 4.8 S3 Data Policy — `USMSStudentDataReadWrite`
+### 4.8 S3 Data Policy - `USMSStudentDataReadWrite`
 
-Correctly separates the **bucket ARN** (`arn:aws:s3:::usms-student-data`, used for `s3:ListBucket`) from the **object ARN** (`arn:aws:s3:::usms-student-data/*`, used for `s3:GetObject`/`s3:PutObject`) — the most common real-world S3 policy mistake, avoided here. Includes an explicit Deny on `s3:DeleteBucket`.
+Correctly separates the **bucket ARN** (`arn:aws:s3:::usms-student-data`, used for `s3:ListBucket`) from the **object ARN** (`arn:aws:s3:::usms-student-data/*`, used for `s3:GetObject`/`s3:PutObject`) - the most common real-world S3 policy mistake, avoided here. Includes an explicit Deny on `s3:DeleteBucket`.
 
-> 📸 **Screenshot — Step 23:** `aws iam list-policies --scope Local` showing the policy
+> **Screenshot - Step 23:** `aws iam list-policies --scope Local` showing the policy
 >
-> ![s3 policy](screenshots/20-s3-policy.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 17-55-41.png>)
 
 ### 4.9 `--generate-cli-skeleton` Exploration
 
-> 📸 **Screenshot — Step 24:** `create-role-skeleton.json` contents
+> **Screenshot - Step 24:** `create-role-skeleton.json` contents
 >
-> ![cli skeleton](screenshots/21-cli-skeleton.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 18-08-02.png>)
 
 **Independent task result:** skeletons for `iam create-policy` and `ec2 create-vpc` saved under `templates/`.
-> *(fill in: which `ec2 create-vpc` parameter looks most important, and why)*
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 18-09-01.png>)
 
-### 4.10 Inline Policy — `USMSSelfManageCredentials`
+### 4.10 Inline Policy - `USMSSelfManageCredentials`
 
 Attached directly to `usms-dev-01` using `put-user-policy`, using the `${aws:username}` policy variable so the same document is correct for any user it is applied to. The heredoc was written with `<< 'EOF'` (quoted) specifically to stop the shell from expanding `${aws:username}` before it reached the file.
 
-> 📸 **Screenshot — Step 25:** `aws iam list-user-policies` + `aws iam get-user-policy` output, and `grep aws:username` proving the variable was not expanded
+> **Screenshot - Step 25:** `aws iam list-user-policies` + `aws iam get-user-policy` output, and `grep aws:username` proving the variable was not expanded
 >
-> ![inline policy](screenshots/22-inline-policy.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 18-12-37.png>)
 
 ### 4.11 Auditing an Identity
 
 Checked all four places permissions can live for `usms-dev-01`: group memberships, attached policies, inline policies, and access keys. Took a full account snapshot with `get-account-authorization-details`.
 
-> 📸 **Screenshot — Step 26:** combined output of groups / attached / inline / access-keys for `usms-dev-01`
+> **Screenshot - Step 26:** combined output of groups / attached / inline / access-keys for `usms-dev-01`
 >
-> ![identity audit](screenshots/23-identity-audit.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 18-35-16.png>)
 
 ### 4.12 Policy Versioning
 
 `USMSDeveloperBase` was updated to v2 (adding `ec2:DeleteVpc`, `ec2:DescribeAvailabilityZones` for Lab 2) using `create-policy-version --set-as-default`, keeping v1 available for rollback.
 
-> 📸 **Screenshot — Step 27:** `aws iam list-policy-versions --output table` showing v2 as default, v1 retained
+> **Screenshot - Step 27:** `aws iam list-policy-versions --output table` showing v2 as default, v1 retained
 >
-> ![policy versions](screenshots/24-policy-versions.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 18-37-45.png>)
 
 ### 4.13 Role for EC2 (`usms-ec2-app-role`)
 
 Created with a trust policy naming `ec2.amazonaws.com` as the principal, permissions policy `USMSStudentDataReadWrite` attached, and wrapped in the instance profile `usms-ec2-app-profile` (required because an EC2 instance cannot be assigned a role directly).
 
-> 📸 **Screenshot — Step 28:** `aws iam get-role` (trust) + `aws iam get-instance-profile` output
+> **Screenshot - Step 28:** `aws iam get-role` (trust) + `aws iam get-instance-profile` output
 >
-> ![ec2 role](screenshots/25-ec2-role.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 18-41-10.png>)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 18-41-31.png>)
 
 ### 4.14 Role for Lambda (`usms-lambda-exec-role`)
 
 Trust policy names `lambda.amazonaws.com`. Permissions policy `USMSLambdaBasic` grants log-writing permissions (`logs:CreateLogGroup/Stream`, `logs:PutLogEvents`) and read access to `usms-student-data/*`.
 
-> 📸 **Screenshot — Step 29:** `aws iam list-roles --query '...usms-...'` filtered table
+> **Screenshot - Step 29:** `aws iam list-roles --query '...usms-...'` filtered table
 >
-> ![lambda role](screenshots/26-lambda-role.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 18-44-25.png>)
 
 ### 4.15 Role for Humans + STS (`usms-developer-role`)
 
@@ -359,45 +364,49 @@ Demonstrates the "assume for elevated, temporary access" pattern:
 - `sts assume-role` returned temporary credentials: `ASIA...` access key, secret key, session token, 1-hour expiration
 - Credentials exported as environment variables, tested, then explicitly `unset` and identity confirmed back to root via `whoami.sh`
 
-> 📸 **Screenshot — Step 30.3:** `assumed-role.json` contents (temporary credentials, `ASIA` prefix visible)
+> **Screenshot - Step 30.3:** `assumed-role.json` contents (temporary credentials, `ASIA` prefix visible)
 >
-> ![assume role](screenshots/27-assume-role.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 18-50-04.png>)
 
-> 📸 **Screenshot — Step 30.4:** `get-caller-identity` under the assumed role, then `whoami.sh` confirming return to root identity
+> **Screenshot - Step 30.4:** `get-caller-identity` under the assumed role, then `whoami.sh` confirming return to root identity
 >
-> ![assumed identity and revert](screenshots/28-assumed-and-revert.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 18-50-23.png>)
 
 ### 4.16 Access Keys
 
 An access key was created for `usms-dev-01`, redirected directly into `outputs/usms-dev-01-access-key.json` (never shown on screen), permissions locked with `chmod 600`. A second profile `usms-dev` was configured using this key.
 
-> 📸 **Screenshot — Step 31:** `git check-ignore -v outputs/usms-dev-01-access-key.json` naming the exact rule that blocks it, + `ls -l` showing `600` permissions
+> **Screenshot - Step 31:** `git check-ignore -v outputs/usms-dev-01-access-key.json` naming the exact rule that blocks it, + `ls -l` showing `600` permissions
 >
-> ![access key protection](screenshots/29-access-key-protection.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 18-56-15.png>)
 
-> 📸 **Screenshot — Step 31:** `aws sts get-caller-identity --profile usms-dev`
+> **Screenshot - Step 31:** `aws sts get-caller-identity --profile usms-dev`
 >
-> ![usms-dev profile](screenshots/30-usms-dev-profile.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 18-56-30.png>)
 
 ### 4.17 Policy Simulator
 
 `simulate-principal-policy` was run against `usms-dev-01` for `ec2:CreateVpc`, `iam:CreateUser`, and `s3:GetObject`.
 
-> 📸 **Screenshot — Step 32:** simulator output table (`allowed` / `explicitDeny` / `implicitDeny`)
+> **Screenshot - Step 32:** simulator output table (`allowed` / `explicitDeny` / `implicitDeny`)
 >
-> ![policy simulator](screenshots/31-policy-simulator.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 19-03-48.png>)
 
 *(If the simulator was unsupported on this Floci build, this is noted as a Floci limitation, and the prediction was instead justified by reading the policy JSON directly — see Review Question 5.)*
+
+**Independent task result:**
+
+![alt text](<../../screenshots/Screenshot from 2026-08-21 19-06-23.png>)
 
 ### 4.18 Saving Lab State
 
 `configs/lab-01.env` was generated containing every ARN needed by later labs (all values confirmed non-empty), and the emulator state was snapshotted.
 
-> 📸 **Screenshot — Step 33.1:** `cat configs/lab-01.env` with all ARNs populated (no secrets)
+> **Screenshot - Step 33.1:** `cat configs/lab-01.env` with all ARNs populated (no secrets)
 >
 > ![lab-01 env file](screenshots/32-lab01-env.png)
 
-> 📸 **Screenshot — Step 33.2:** `floci snapshot list` (or the `tar` fallback file listing)
+> **Screenshot - Step 33.2:** `floci snapshot list` (or the `tar` fallback file listing)
 >
 > ![snapshot saved](screenshots/33-snapshot-saved.png)
 
