@@ -65,7 +65,7 @@ By the end of this lab I am able to:
 
 > **Screenshot - Step 1/2:** `uname -s -m`, `docker --version`, `docker compose version` output
 >
-> ![alt text](<assets/Screenshot from 2026-08-21 11-02-55.png>)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 11-02-55.png>)
 
 ---
 
@@ -91,39 +91,39 @@ aws-floci-course/
 └── notes/
 ```
 
-> 📸 **Screenshot — Step 5:** `find . -type d | sort` output confirming folder tree
+> **Screenshot - Step 5:** `find . -type d | sort` output confirming folder tree
 >
-> ![directory structure](screenshots/02-directory-structure.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 11-19-31.png>)
 
 ### 3.2 Git Initialization and Secret Protection
 
 `.gitignore` was written **before** the Git repository was initialized, so no secret could ever have existed unprotected. Key rule used: `outputs/*` with `!outputs/.gitkeep` (the `outputs/` form alone would break the negation).
 
-- ✔ `.gitignore` and `outputs/.gitkeep` staged and committed as the **first** commit
-- ✔ A fake secret file (`outputs/fake-key.json`) was created and proven to be blocked by `git status` and `git check-ignore -v`
+- `.gitignore` and `outputs/.gitkeep` staged and committed as the **first** commit
+- A fake secret file (`outputs/fake-key.json`) was created and proven to be blocked by `git status` and `git check-ignore -v`
 
-> 📸 **Screenshot — Step 6:** `git status --short` + `git check-ignore -v outputs/fake-key.json` proving the fake secret is blocked
+> **Screenshot - Step 6:** `git status --short` + `git check-ignore -v outputs/fake-key.json` proving the fake secret is blocked
 >
-> ![gitignore proof](screenshots/03-gitignore-proof.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 11-28-01.png>)
 
 ### 3.3 Storage Mode Understanding
 
-Floci's default storage mode is `memory` — nothing survives a restart. Three separate mechanisms had to be configured correctly:
+Floci's default storage mode is `memory` - nothing survives a restart. Three separate mechanisms had to be configured correctly:
 
-1. `FLOCI_STORAGE_MODE=hybrid` — durability switch (the actual fix)
-2. `FLOCI_STORAGE_HOST_PERSISTENT_PATH` — absolute host path for sidecar services
-3. Compose-managed lifecycle — CLI flags from a plain `floci start` are never remembered across restarts
+1. `FLOCI_STORAGE_MODE=hybrid` - durability switch (the actual fix)
+2. `FLOCI_STORAGE_HOST_PERSISTENT_PATH` - absolute host path for sidecar services
+3. Compose-managed lifecycle - CLI flags from a plain `floci start` are never remembered across restarts
 
 **Reflection note (from `notes/lab-01-notes.md`):**
-> *(fill in — two sentences explaining why `--persist` alone did not solve the problem)*
+> *(fill in - two sentences explaining why `--persist` alone did not solve the problem)*
 
 ### 3.4 `docker-compose.yml` and `configs/course.env`
 
 Both files were written to pin `FLOCI_STORAGE_MODE=hybrid`, bind-mount `/app/data` to an absolute host path, and set stable resource naming (`FLOCI_DOCKER_RESOURCE_NAMESPACE=floci-course`). The Compose file uses `${FLOCI_HOST_DATA_DIR:?...}` as a fail-fast guard against running Compose directly instead of through `floci-up.sh`.
 
-> 📸 **Screenshot — Step 8:** `docker compose config` failing with the fail-fast guard message (proves the guard works)
+> **Screenshot - Step 8:** `docker compose config` failing with the fail-fast guard message (proves the guard works)
 >
-> ![compose guard](screenshots/04-compose-guard.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 11-36-08.png>)
 
 ### 3.5 Bringing Floci Up
 
@@ -133,55 +133,58 @@ Both files were written to pin `FLOCI_STORAGE_MODE=hybrid`, bind-mount `/app/dat
 - Wait for `/_floci/health` before returning
 - Verify `/app/data` is a real host bind mount, not a phantom volume
 
-> 📸 **Screenshot — Step 9:** `./scripts/setup/floci-up.sh` full output showing "Verified /app/data -> ..." and "Floci is up at http://localhost:4566"
+> **Screenshot - Step 9:** `./scripts/setup/floci-up.sh` full output showing "Verified /app/data -> ..." and "Floci is up at http://localhost:4566"
 >
-> ![floci up](screenshots/05-floci-up.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 12-10-15.png>)
 
-> 📸 **Screenshot — Step 9 (verify):** `docker compose ps` and `curl -s http://localhost:4566/_floci/health`
+> **Screenshot - Step 9 (verify):** `docker compose ps` and `curl -s http://localhost:4566/_floci/health`
 >
-> ![floci health check](screenshots/06-floci-health.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 12-12-25.png>)
+>
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 16-39-16.png>)
 
 ### 3.6 AWS CLI Installation and Profile Configuration
 
 AWS CLI v2 was installed and a named profile `floci` was created pointing `endpoint_url` at `http://localhost:4566`, with dummy credentials (`test` / `test`).
 
-> 📸 **Screenshot — Step 10:** `aws --version` (must show `aws-cli/2.x`)
+> **Screenshot - Step 10:** `aws --version` (must show `aws-cli/2.x`)
 >
-> ![aws cli version](screenshots/07-aws-cli-version.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 16-47-12.png>)
 
-> 📸 **Screenshot — Step 12:** `cat ~/.aws/config` and `cat ~/.aws/credentials`
+> **Screenshot - Step 12:** `cat ~/.aws/config` and `cat ~/.aws/credentials`
 >
-> ![aws profile config](screenshots/08-aws-profile-config.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 16-48-44.png>)
 
-### 3.7 First AWS CLI Command — `whoami.sh`
+### 3.7 First AWS CLI Command - `whoami.sh`
 
 `aws sts get-caller-identity` was run and confirmed account `000000000000`. This was wrapped into `scripts/utilities/whoami.sh`, which fails loudly if the account is not the Floci account.
 
-> 📸 **Screenshot — Step 13:** `./scripts/utilities/whoami.sh` output (table + green "[ok]" line)
+> **Screenshot - Step 13:** `./scripts/utilities/whoami.sh` output (table + green "[ok]" line)
 >
-> ![whoami output](screenshots/09-whoami.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 16-51-34.png>)
 
 ### 3.8 Proof of Isolation and Persistence
 
 | Proof | Method | Result |
 |---|---|---|
-| Isolation — account number | `000000000000` returned | ✔ |
-| Isolation — request URL | `--debug` shows `localhost:4566` | ✔ |
-| Isolation — stopping breaks CLI | `floci-down.sh` then CLI call fails | ✔ |
-| Persistence — marker survives restart | `iam create-user` → `docker compose restart` → `iam get-user` succeeds | ✔ |
-| Persistence — data on disk | `~/floci-data` non-empty, `du -sh` > 0 | ✔ |
+| Isolation - account number | `000000000000` returned | Done |
+| Isolation - request URL | `--debug` shows `localhost:4566` | Done |
+| Isolation - stopping breaks CLI | `floci-down.sh` then CLI call fails | Done |
+| Persistence - marker survives restart | `iam create-user` → `docker compose restart` → `iam get-user` succeeds | Done |
+| Persistence - data on disk | `~/floci-data` non-empty, `du -sh` > 0 | Done |
 
-> 📸 **Screenshot — Step 14.2:** `--debug` output showing `http://localhost:4566/` as the request URL
+> **Screenshot - Step 14.2:** `--debug` output showing `http://localhost:4566/` as the request URL
 >
-> ![debug url](screenshots/10-debug-url.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 17-05-34.png>)
 
-> 📸 **Screenshot — Step 14.4 (the most important screenshot in Part A):** `persistence-check` user ARN returned before restart, and `UserName` returned again after `docker compose restart floci`
+> **Screenshot - Step 14.4 (the most important screenshot in Part A):** `persistence-check` user ARN returned before restart, and `UserName` returned again after `docker compose restart floci`
 >
-> ![persistence proof](screenshots/11-persistence-proof.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 17-07-11.png>)
 
-> 📸 **Screenshot — Step 14.4:** `ls -la ~/floci-data` and `du -sh ~/floci-data`
+> **Screenshot - Step 14.4:** `ls -la ~/floci-data` and `du -sh ~/floci-data`
 >
-> ![floci data on disk](screenshots/12-floci-data-disk.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 17-08-51.png>)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 17-09-11.png>)
 
 ### 3.9 Storage Diagnostics and Commit
 
@@ -597,4 +600,3 @@ A committed `docker-compose.yml` is a security and reproducibility property beca
 
 ---
 
-**End of Lab 01 Report**
