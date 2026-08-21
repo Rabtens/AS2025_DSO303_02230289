@@ -1,0 +1,2 @@
+aws ec2 create-vpc \
+  --cidr-block <CIDR_BLOCK>

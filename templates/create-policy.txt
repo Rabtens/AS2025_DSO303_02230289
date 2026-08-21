@@ -1,0 +1,3 @@
+aws iam create-policy \
+  --policy-name <POLICY_NAME> \
+  --policy-document <POLICY_DOCUMENT>

@@ -2,10 +2,10 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "AllowUSMSDevelopersToAssume",
+      "Sid": "AllowAuditUserToAssumeRole",
       "Effect": "Allow",
       "Principal": {
-        "AWS": "arn:aws:iam::000000000000:user/usms-dev-01"
+        "AWS": "arn:aws:iam::000000000000:user/usms-audit-01"
       },
       "Action": "sts:AssumeRole"
     }

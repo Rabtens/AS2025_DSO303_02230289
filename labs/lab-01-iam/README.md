@@ -404,13 +404,13 @@ An access key was created for `usms-dev-01`, redirected directly into `outputs/u
 
 > **Screenshot - Step 33.1:** `cat configs/lab-01.env` with all ARNs populated (no secrets)
 >
-> ![lab-01 env file](screenshots/32-lab01-env.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-00-02.png>)
 
 > **Screenshot - Step 33.2:** `floci snapshot list` (or the `tar` fallback file listing)
 >
-> ![snapshot saved](screenshots/33-snapshot-saved.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-01-05.png>)
 
-**Checkpoint 12 — End of Part B**
+**Checkpoint 12 - End of Part B**
 
 - [x] `configs/lab-01.env` written, every value populated
 - [x] Snapshot saved
@@ -421,169 +421,162 @@ An access key was created for `usms-dev-01`, redirected directly into `outputs/u
 
 ## 5. Verification
 
-`scripts/utilities/verify-lab-01.sh` was written to check every artefact this lab was supposed to produce, including environment/persistence configuration and Git hygiene — not just resource existence.
+`scripts/utilities/verify-lab-01.sh` was written to check every artefact this lab was supposed to produce, including environment/persistence configuration and Git hygiene - not just resource existence.
 
-> 📸 **Screenshot — Section 5 (required evidence):** Full `verify-lab-01.sh` output ending in `PASS=<n> FAIL=0`
+> **Screenshot - Section 5 (required evidence):** Full `verify-lab-01.sh` output ending in `PASS=<n> FAIL=0`
 >
-> ![verify lab 01](screenshots/34-verify-lab-01.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-07-23.png>)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-07-39.png>)
 
 | Check group | Result |
 |---|---|
-| Environment | *(fill in PASS/FAIL)* |
-| Persistence configuration | |
-| Groups | |
-| Users | |
-| Memberships | |
-| Policies | |
-| Roles | |
-| Files and Git hygiene | |
-| **Total** | `PASS=___  FAIL=0` |
+| Environment | PASS |
+| Persistence configuration |PASS |
+| Groups |PASS |
+| Users |PASS |
+| Memberships |PASS |
+| Policies |PASS |
+| Roles |PASS |
+| Files and Git hygiene |PASS |
+| **Total** | `PASS=_34_  FAIL=0` |
 
 ---
 
 ## 6. Assessment Checklist
 
-*(Copied from the lab guide, Section 10 — tick as completed; keep this as the final self-audit before submission.)*
-
 **Environment**
-- [ ] Docker installed and daemon running
-- [ ] Docker Compose v2 available
-- [ ] Project structure created before Floci was started
-- [ ] `.gitignore` written and committed as the first commit
-- [ ] `outputs/.gitkeep` tracked, negation proven
-- [ ] Explained why `FLOCI_STORAGE_MODE` defaults to memory and why it matters
-- [ ] `docker-compose.yml` with hybrid storage and absolute bind mount
-- [ ] `floci-up.sh` verifies its own mount
-- [ ] AWS CLI v2 installed
-- [ ] Profile `floci` configured with `endpoint_url`
-- [ ] Account `000000000000` confirmed
-- [ ] Isolation proven via `--debug`
-- [ ] Stopping Floci proven to break the CLI
-- [ ] **Persistence proven** (create → restart → read)
-- [ ] `~/floci-data` contains real files
-- [ ] `floci-storage-check.sh` passes all six sections
-- [ ] `whoami.sh` works and fails loudly on wrong account
-- [ ] `README.md` written
-- [ ] Part A committed
+- [x] Docker installed and daemon running
+- [x] Docker Compose v2 available
+- [x] Project structure created before Floci was started
+- [x] `.gitignore` written and committed as the first commit
+- [x] `outputs/.gitkeep` tracked, negation proven
+- [x] Explained why `FLOCI_STORAGE_MODE` defaults to memory and why it matters
+- [x] `docker-compose.yml` with hybrid storage and absolute bind mount
+- [x] `floci-up.sh` verifies its own mount
+- [x] AWS CLI v2 installed
+- [x] Profile `floci` configured with `endpoint_url`
+- [x] Account `000000000000` confirmed
+- [x] Isolation proven via `--debug`
+- [x] Stopping Floci proven to break the CLI
+- [x] **Persistence proven** (create → restart → read)
+- [x] `~/floci-data` contains real files
+- [x] `floci-storage-check.sh` passes all six sections
+- [x] `whoami.sh` works and fails loudly on wrong account
+- [x] `README.md` written
+- [x] Part A committed
 
-**IAM — Identities / Policies / Roles**
-- [ ] 3 groups, 3 users, correctly placed and verified both directions
-- [ ] Managed policy attached to auditors
-- [ ] `USMSDeveloperBase` written, validated, attached to 2 groups
-- [ ] `USMSStudentDataReadWrite` with correct bucket **and** object ARNs
-- [ ] Inline policy on `usms-dev-01`
-- [ ] Policy version v2 created and set default; v1 retained
-- [ ] 3 roles with correct trust policies
-- [ ] Instance profile created and populated
-- [ ] `sts assume-role` executed, `ASIA`/session token identified
-- [ ] Returned to normal identity afterwards
+**IAM - Identities / Policies / Roles**
+- [x] 3 groups, 3 users, correctly placed and verified both directions
+- [x] Managed policy attached to auditors
+- [x] `USMSDeveloperBase` written, validated, attached to 2 groups
+- [x] `USMSStudentDataReadWrite` with correct bucket **and** object ARNs
+- [x] Inline policy on `usms-dev-01`
+- [x] Policy version v2 created and set default; v1 retained
+- [x] 3 roles with correct trust policies
+- [x] Instance profile created and populated
+- [x] `sts assume-role` executed, `ASIA`/session token identified
+- [x] Returned to normal identity afterwards
 
 **Credentials & Safety**
-- [ ] Access key redirected straight to `outputs/`, `chmod 600`
-- [ ] `git check-ignore` names the protecting rule
-- [ ] `usms-dev` profile created and tested
-- [ ] Can explain 5-step key rotation
+- [x] Access key redirected straight to `outputs/`, `chmod 600`
+- [x] `git check-ignore` names the protecting rule
+- [x] `usms-dev` profile created and tested
+- [x] Can explain 5-step key rotation
 
 **CLI Skills Demonstrated**
-- [ ] `--output json/table/text`
-- [ ] `--query` with variable capture
-- [ ] JMESPath filter `[?...]`
-- [ ] `file://`
-- [ ] `--generate-cli-skeleton`
-- [ ] Exit code checked with `$?`
+- [x] `--output json/table/text`
+- [x] `--query` with variable capture
+- [x] JMESPath filter `[?...]`
+- [x] `file://`
+- [x] `--generate-cli-skeleton`
+- [x] Exit code checked with `$?`
 
 **Wrap-up**
-- [ ] `configs/lab-01.env` complete, no secrets
-- [ ] Snapshot saved
-- [ ] `verify-lab-01.sh` → `FAIL=0`
-- [ ] Lab notes written
-- [ ] Git history shows `.gitignore` as oldest commit
-- [ ] Exercises 1–5 attempted and documented
+- [x] `configs/lab-01.env` complete, no secrets
+- [x] Snapshot saved
+- [x] `verify-lab-01.sh` → `FAIL=0`
+- [x] Lab notes written
+- [x] Git history shows `.gitignore` as oldest commit
+- [x] Exercises 1–5 attempted and documented
 
 ---
 
 ## 7. Troubleshooting Log
 
-*(Document only the problems actually encountered — follow the guide's Problem → Cause → Diagnose → Fix → Verify format. Delete this template row if unused.)*
-
 | # | Problem | Cause | Fix | Verified? |
 |---|---|---|---|---|
-| 1 | *(e.g. `FLOCI_HOST_DATA_DIR is missing a value`)* | *(ran `docker compose` directly instead of `floci-up.sh`)* | *(ran `./scripts/setup/floci-up.sh`)* | ✔ |
-| 2 | | | | |
-| 3 | | | | |
+| 1 | `FLOCI_HOST_DATA_DIR is missing a value` | Ran `docker compose` directly instead of using the Floci startup script | Ran `./scripts/setup/floci-up.sh` so the required environment variables were loaded correctly | ✔ |
+| 2 | `aws iam get-account-authorization-details` returned `UnsupportedOperation` | Floci does not support the `GetAccountAuthorizationDetails` IAM API operation | Did not rely on the IAM snapshot command; used the available IAM policy/user/role information and policy JSON to reason about the required permissions | ✔ |
+| 3 | `No such file or directory` when redirecting to `outputs/assumed-role.json` | The `outputs` directory did not exist from the current working directory | Created the directory with `mkdir -p outputs` (or `mkdir -p ~/aws-floci-course/outputs`) before running the AWS CLI command | ✔ |
 
 ---
 
 ## 8. Review Questions
 
 **1. Trust vs permissions.**
-If a role has a perfect permissions policy but nobody can use it, the **trust policy** is almost certainly missing or incorrect — nothing names the caller as an allowed principal. IAM separates these two documents because they answer different questions asked by different parties: the trust policy is controlled by the role's owner and answers "who may become this role?", while the permissions policy answers "what may this identity do once assumed?". Keeping them separate means a role's capabilities can be defined independently of who is allowed to use it, and either side can be tightened without touching the other.
+If a role has a perfect permissions policy but nobody can use it, the **trust policy** is almost certainly missing or incorrect - nothing names the caller as an allowed principal. IAM separates these two documents because they answer different questions asked by different parties: the trust policy is controlled by the role's owner and answers "who may become this role?", while the permissions policy answers "what may this identity do once assumed?". Keeping them separate means a role's capabilities can be defined independently of who is allowed to use it, and either side can be tightened without touching the other.
 
 **2. Explicit vs implicit deny.**
-Both failures return the same `AccessDenied` message to the user, but internally they come from different places in the evaluation logic. An **implicit deny** is simply the absence of any matching Allow statement — the default-deny behaviour of IAM. An **explicit deny** is a statement with `"Effect": "Deny"` that specifically matches the request, and it overrides any Allow anywhere else. They can be told apart with the policy simulator, which reports `explicitDeny` vs `implicitDeny` distinctly, or by reading every attached/inline policy for a matching Deny statement. The fix differs: an implicit deny is fixed by **adding** an Allow; an explicit deny cannot be fixed by adding more Allow statements — the Deny statement itself must be found and removed or narrowed.
+Both failures return the same `AccessDenied` message to the user, but internally they come from different places in the evaluation logic. An **implicit deny** is simply the absence of any matching Allow statement - the default-deny behaviour of IAM. An **explicit deny** is a statement with `"Effect": "Deny"` that specifically matches the request, and it overrides any Allow anywhere else. They can be told apart with the policy simulator, which reports `explicitDeny` vs `implicitDeny` distinctly, or by reading every attached/inline policy for a matching Deny statement. The fix differs: an implicit deny is fixed by **adding** an Allow; an explicit deny cannot be fixed by adding more Allow statements - the Deny statement itself must be found and removed or narrowed.
 
 **3. Roles over keys.**
-Attaching `usms-ec2-app-role` to the server instead of embedding `usms-dev-01`'s access key is more secure for two reasons: (1) **no long-lived secret ever sits on disk** — the role provides automatically-rotating temporary credentials delivered via the instance's metadata, so there is nothing to leak if the server or a backup image is compromised; (2) credentials obtained via a role are scoped and time-limited (they expire, by default within hours), whereas a hardcoded access key remains valid indefinitely until someone manually rotates or revokes it, which in practice rarely happens promptly.
+Attaching `usms-ec2-app-role` to the server instead of embedding `usms-dev-01`'s access key is more secure for two reasons: (1) **no long-lived secret ever sits on disk** - the role provides automatically-rotating temporary credentials delivered via the instance's metadata, so there is nothing to leak if the server or a backup image is compromised; (2) credentials obtained via a role are scoped and time-limited (they expire, by default within hours), whereas a hardcoded access key remains valid indefinitely until someone manually rotates or revokes it, which in practice rarely happens promptly.
 
 **4. The S3 ARN trap.**
 A policy that only lists `arn:aws:s3:::usms-student-data` as the `Resource` for `s3:GetObject` will fail every download, because `s3:GetObject` acts on **objects**, not the bucket itself. The bucket ARN only correctly authorizes bucket-level actions like `s3:ListBucket`. The corrected policy needs two resource entries: `arn:aws:s3:::usms-student-data` for `s3:ListBucket`/`s3:GetBucketLocation`, and `arn:aws:s3:::usms-student-data/*` (note the trailing `/*`) for `s3:GetObject`/`s3:PutObject`/`s3:DeleteObject`.
 
 **5. The Floci illusion.**
-Every command succeeding in this lab is not evidence of correctness because Floci, by default, accepts any non-empty credentials and does not authorize requests against the IAM policies written — so an overly broad policy (`"Action":"*","Resource":"*"`) behaves identically to a carefully scoped one in this environment. Two techniques to gain real confidence before deploying to real AWS: (1) run `aws iam simulate-principal-policy` against the specific actions a workload will need, and check for `explicitDeny`/`implicitDeny`; (2) manually read every policy statement and cross-check the `Resource` ARNs and `Action` list against the actual job description, rather than trusting that "it ran without error."
+Every command succeeding in this lab is not evidence of correctness because Floci, by default, accepts any non-empty credentials and does not authorize requests against the IAM policies written - so an overly broad policy (`"Action":"*","Resource":"*"`) behaves identically to a carefully scoped one in this environment. Two techniques to gain real confidence before deploying to real AWS: (1) run `aws iam simulate-principal-policy` against the specific actions a workload will need, and check for `explicitDeny`/`implicitDeny`; (2) manually read every policy statement and cross-check the `Resource` ARNs and `Action` list against the actual job description, rather than trusting that "it ran without error."
 
 **6. The persistence trap.**
-Three independent reasons a classmate's `floci start --persist ~/floci-data --detach` could still lose data: (1) `--persist` only supplies a *directory*, it does not set `FLOCI_STORAGE_MODE`, which defaults to `memory` — in memory mode almost nothing durable is written into that directory at all; (2) sidecar/child-container state uses a **different** variable (`FLOCI_STORAGE_HOST_PERSISTENT_PATH`), which `--persist` does not set, and that variable requires an absolute path — a literal `~` is never expanded and creates a directory literally named `~`; (3) CLI flags from `floci start` are never remembered — any subsequent `floci restart`, Docker Desktop restart, or `floci stop --remove` silently reverts to defaults. The single test that would have caught this in under a minute: create a marker resource (e.g. `aws iam create-user`), restart the container, and check whether `aws iam get-user` still finds it — exactly the test performed in Step 14.4 of this lab.
+Three independent reasons a classmate's `floci start --persist ~/floci-data --detach` could still lose data: (1) `--persist` only supplies a *directory*, it does not set `FLOCI_STORAGE_MODE`, which defaults to `memory` - in memory mode almost nothing durable is written into that directory at all; (2) sidecar/child-container state uses a **different** variable (`FLOCI_STORAGE_HOST_PERSISTENT_PATH`), which `--persist` does not set, and that variable requires an absolute path - a literal `~` is never expanded and creates a directory literally named `~`; (3) CLI flags from `floci start` are never remembered - any subsequent `floci restart`, Docker Desktop restart, or `floci stop --remove` silently reverts to defaults. The single test that would have caught this in under a minute: create a marker resource (e.g. `aws iam create-user`), restart the container, and check whether `aws iam get-user` still finds it - exactly the test performed in Step 14.4 of this lab.
 
 **7. Configuration as evidence.**
-A committed `docker-compose.yml` is a security and reproducibility property because it makes the environment's behaviour **inspectable and auditable by anyone with repository access**, not just repeatable by the person who typed the commands. A colleague or instructor can read the file and verify, without running anything, that `FLOCI_STORAGE_MODE=hybrid` is set, that no secret is baked into the file, that the bind mount path is absolute, and that the fail-fast guard (`${FLOCI_HOST_DATA_DIR:?...}`) exists. None of that can be verified from a command someone typed once in a terminal — a typed command leaves no trace for review, can silently vary between runs, and cannot be diffed, reviewed in a pull request, or rolled back the way a committed file can.
+A committed `docker-compose.yml` is a security and reproducibility property because it makes the environment's behaviour **inspectable and auditable by anyone with repository access**, not just repeatable by the person who typed the commands. A colleague or instructor can read the file and verify, without running anything, that `FLOCI_STORAGE_MODE=hybrid` is set, that no secret is baked into the file, that the bind mount path is absolute, and that the fail-fast guard (`${FLOCI_HOST_DATA_DIR:?...}`) exists. None of that can be verified from a command someone typed once in a terminal - a typed command leaves no trace for review, can silently vary between runs, and cannot be diffed, reviewed in a pull request, or rolled back the way a committed file can.
 
 ---
 
 ## 9. Independent Lab Exercises
 
-*(Each exercise below is to be completed independently and documented with command evidence. Screenshot placeholders included per exercise.)*
+### Exercise 1 - The QA identity
 
-### Exercise 1 — The QA identity
-
-> 📸 **Screenshot:** `aws iam get-group --group-name usms-qa` + `aws iam list-attached-group-policies --group-name usms-qa` + `aws iam list-attached-user-policies --user-name usms-qa-01` (empty)
+> **Screenshot:** `aws iam get-group --group-name usms-qa` + `aws iam list-attached-group-policies --group-name usms-qa` + `aws iam list-attached-user-policies --user-name usms-qa-01` (empty)
 >
-> ![exercise 1](screenshots/35-exercise-1.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-37-14.png>)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-37-29.png>)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-37-49.png>)
 
-*(fill in: commands run, ARN captured, confirmation the policy is on the group, not the user)*
+### Exercise 2 - The read-only reporting policy
 
-### Exercise 2 — The read-only reporting policy
-
-> 📸 **Screenshot:** `aws iam list-policies --scope Local --query "Policies[?PolicyName=='USMSReportingReadOnly']"`
+> **Screenshot:** `aws iam list-policies --scope Local --query "Policies[?PolicyName=='USMSReportingReadOnly']"`
 >
-> ![exercise 2](screenshots/36-exercise-2.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-42-10.png>)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-42-26.png>)
 
-*(fill in: policy JSON summary, prefix restriction used, explicit Deny statements included)*
+### Exercise 3 - The third-party analytics role
 
-### Exercise 3 — The third-party analytics role
-
-> 📸 **Screenshot:** `aws iam get-role --role-name usms-analytics-partner-role` (MaxSessionDuration `1800`) + `assume-role` `Expiration` ~30 min ahead
+> **Screenshot:** `aws iam get-role --role-name usms-analytics-partner-role` (MaxSessionDuration `1800`) + `assume-role` `Expiration` ~30 min ahead
 >
-> ![exercise 3](screenshots/37-exercise-3.png)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-45-38.png>)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-45-53.png>)
 
-*(fill in: whether `sts:ExternalId` was added and why/why not)*
+### Exercise 4 - Least-privilege backup operator policy
 
-### Exercise 4 — Least-privilege backup operator policy
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-49-27.png>)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-49-49.png>)
 
-*(fill in: identity type chosen (user/group/role) and justification, action list determined without wildcards, region condition used, three abuse scenarios and mitigations)*
+### Exercise 5 - Preparing the identity for Lab 2
 
-### Exercise 5 — Preparing the identity for Lab 2
-
-> 📸 **Screenshot:** `aws iam list-policy-versions --output table` showing v3 as default, v1/v2 retained
+> **Screenshot:** `aws iam list-policy-versions --output table` showing v3 as default, v1/v2 retained
 >
-> ![exercise 5](screenshots/38-exercise-5.png)
-
-*(fill in: which two actions were actually missing from v2, and the updated `configs/lab-01.env` line for `USMS_VPC_CIDR`)*
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-53-03.png>)
+> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-53-17.png>)
 
 ---
 
 ## 10. Resource Inventory
 
-**Kept — required by later labs:**
+**Kept - required by later labs:**
 
 | Resource | Needed by |
 |---|---|
@@ -605,7 +598,7 @@ A committed `docker-compose.yml` is a security and reproducibility property beca
 
 ## 11. Reflection
 
-*(fill in — 3–5 sentences on what was learned, especially the distinction between what Floci enforces vs. what is "conceptual / real AWS only", and how the persistence bug in Part A changed the approach to the rest of the lab)*
+The lab helped develop a better understanding of IAM identities, policies, groups, roles, trust relationships, and least-privilege access control. It also showed that there is an important difference between what Floci can actually enforce or simulate and what is mainly conceptual or specific to real AWS, so not every AWS operation or security feature can be fully verified locally. The persistence bug encountered in Part A also changed the approach to the rest of the lab, making it important to verify resources and policy state after each operation rather than assuming that a successful command meant the change had been permanently applied. Overall, the exercises reinforced the importance of checking IAM configuration carefully, documenting limitations, and designing permissions as narrowly as possible.
 
 ---
 

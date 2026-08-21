@@ -32,11 +32,15 @@
         "ec2:CreateSecurityGroup",
         "ec2:AuthorizeSecurityGroupIngress",
         "ec2:CreateTags",
-        "ec2:ModifyVpcAttribute"
+        "ec2:ModifyVpcAttribute",
+        "ec2:DeleteVpc",
+        "ec2:DescribeAvailabilityZones"
       ],
       "Resource": "*",
       "Condition": {
-        "StringEquals": { "aws:RequestedRegion": "us-east-1" }
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
       }
     },
     {
