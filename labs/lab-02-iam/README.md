@@ -52,9 +52,7 @@ This mirrors common real-world patterns such as:
 
 The diagram below should show: the VPC (`10.0.0.0/16`), the two public subnets (`10.0.1.0/24`, `10.0.2.0/24`) routed to the Internet Gateway, the two private subnets (`10.0.3.0/24`, `10.0.4.0/24`) routed to the NAT Gateway, the security groups (`usms-app-sg`, `usms-db-sg`), the private NACL, and the S3 gateway endpoint.
 
-> **Insert architecture diagram here**
->
-> `[ SCREENSHOT / DIAGRAM SPACE ]`
+> ![alt text](<../../screenshots/Screenshot from 2026-08-27 22-33-58.png>)
 
 **Address plan:**
 
