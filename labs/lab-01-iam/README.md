@@ -536,45 +536,8 @@ A committed `docker-compose.yml` is a security and reproducibility property beca
 
 ---
 
-## 9. Independent Lab Exercises
 
-### Exercise 1 - The QA identity
-
-> **Screenshot:** `aws iam get-group --group-name usms-qa` + `aws iam list-attached-group-policies --group-name usms-qa` + `aws iam list-attached-user-policies --user-name usms-qa-01` (empty)
->
-> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-37-14.png>)
-> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-37-29.png>)
-> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-37-49.png>)
-
-### Exercise 2 - The read-only reporting policy
-
-> **Screenshot:** `aws iam list-policies --scope Local --query "Policies[?PolicyName=='USMSReportingReadOnly']"`
->
-> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-42-10.png>)
-> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-42-26.png>)
-
-### Exercise 3 - The third-party analytics role
-
-> **Screenshot:** `aws iam get-role --role-name usms-analytics-partner-role` (MaxSessionDuration `1800`) + `assume-role` `Expiration` ~30 min ahead
->
-> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-45-38.png>)
-> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-45-53.png>)
-
-### Exercise 4 - Least-privilege backup operator policy
-
-> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-49-27.png>)
-> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-49-49.png>)
-
-### Exercise 5 - Preparing the identity for Lab 2
-
-> **Screenshot:** `aws iam list-policy-versions --output table` showing v3 as default, v1/v2 retained
->
-> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-53-03.png>)
-> ![alt text](<../../screenshots/Screenshot from 2026-08-21 20-53-17.png>)
-
----
-
-## 10. Resource Inventory
+## 9. Resource Inventory
 
 **Kept - required by later labs:**
 
@@ -596,7 +559,7 @@ A committed `docker-compose.yml` is a security and reproducibility property beca
 
 ---
 
-## 11. Reflection
+## 10. Reflection
 
 The lab helped develop a better understanding of IAM identities, policies, groups, roles, trust relationships, and least-privilege access control. It also showed that there is an important difference between what Floci can actually enforce or simulate and what is mainly conceptual or specific to real AWS, so not every AWS operation or security feature can be fully verified locally. The persistence bug encountered in Part A also changed the approach to the rest of the lab, making it important to verify resources and policy state after each operation rather than assuming that a successful command meant the change had been permanently applied. Overall, the exercises reinforced the importance of checking IAM configuration carefully, documenting limitations, and designing permissions as narrowly as possible.
 
