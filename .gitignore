@@ -6,7 +6,8 @@
 # ---- Command output and SECRETS ----
 # NOTE the trailing /* — see the explanation below. It matters.
 outputs/*
-!outputs/.gitkeep
+# Nothing under outputs/ is tracked at all - not even a .gitkeep placeholder.
+# Recreate the directory locally with: mkdir -p outputs
 
 # ---- Generated Compose configuration ----
 # floci-up.sh writes this. It holds machine-specific absolute paths.

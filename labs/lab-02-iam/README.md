@@ -958,7 +958,7 @@ git status --short
 # Confirm secrets stay ignored
 git check-ignore -v outputs/lab-02-assumed-role.json
 
-git add labs/lab-02-vpc/ configs/lab-02.env policies/usms-db-sg-ingress.json \
+git add labs/lab-02-iam/ configs/lab-02.env policies/usms-db-sg-ingress.json \
         scripts/utilities/verify-lab-02.sh scripts/cleanup/lab-02-cleanup.sh
 
 git status --short
@@ -1348,7 +1348,7 @@ See the full AWS CLI command reference table and JMESPath pattern reference in t
 - `scripts/utilities/verify-lab-02.sh` - read-only verification script
 - `scripts/cleanup/lab-02-cleanup.sh` - end-of-course teardown script (not run)
 - `scripts/utilities/lab-02-network-report.sh` - Exercise 3 network classification script
-- `labs/lab-02-vpc/exercises.md` - Exercise 1–5 write-ups and command output
+- `labs/lab-02-iam/exercises.md` - Exercise 1–5 write-ups and command output
 - `notes/lab-02-notes.md` - Review question answers
 
 ---
