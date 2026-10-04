@@ -59,6 +59,11 @@ EOF
 bash -n labs/lab-03-ec2/user-data-db.sh && echo "user-data-db.sh syntax OK"
 wc -c labs/lab-03-ec2/user-data-db.sh
 ```
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-19-14.png>)
+
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-19-29.png>)
+
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-29-26.png>)
  
 The outer heredoc was quoted (`<< 'EOF'`) for the same reason as Step 6: `$MARKER`, `$(cat "$MARKER")`, `$TOKEN` and `$INSTANCE_ID` must all be evaluated on the target instance at boot time, not by the local shell while the file is being written.
  
@@ -76,7 +81,8 @@ DB2_INSTANCE_ID=$(aws ec2 run-instances \
 echo "DB2_INSTANCE_ID = $DB2_INSTANCE_ID"
 aws ec2 wait instance-running --instance-ids "$DB2_INSTANCE_ID"
 ```
- 
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-30-26.png>)
+
 Byte-identical proof, using Step 12's technique:
  
 ```bash
@@ -91,10 +97,10 @@ diff labs/lab-03-ec2/user-data-db.sh outputs/lab-03-db2-userdata.sh \
   && echo "USER DATA PROVEN (db2): byte-identical" \
   || echo "MISMATCH — see the diff above"
 ```
+
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-31-15.png>)
  
-Result: `USER DATA PROVEN (db2): byte-identical`.
- 
-**Idempotence explanation:** user data normally runs only once, at first boot, so a re-run would only actually happen if something outside the normal lifecycle re-invoked cloud-init — for example, a golden AMI built from this instance being launched again with the same script, or an operator manually re-executing `/var/lib/cloud/...` after a `cloud-init clean`. In either case, the marker file at `/var/log/usms-db-bootstrap.done` is checked first, so the script exits at line 2 of its logic without touching `dnf`, `postgresql-setup --initdb` (which would fail or wipe existing data on a second run), or the database.
+**Idempotence explanation:** user data normally runs only once, at first boot, so a re-run would only actually happen if something outside the normal lifecycle re-invoked cloud-init - for example, a golden AMI built from this instance being launched again with the same script, or an operator manually re-executing `/var/lib/cloud/...` after a `cloud-init clean`. In either case, the marker file at `/var/log/usms-db-bootstrap.done` is checked first, so the script exits at line 2 of its logic without touching `dnf`, `postgresql-setup --initdb` (which would fail or wipe existing data on a second run), or the database.
  
 ### Exercise 3 - Problem solving: a reachability report
  
@@ -152,7 +158,10 @@ EOF
 chmod +x scripts/utilities/lab-03-reachability.sh
 ./scripts/utilities/lab-03-reachability.sh
 ```
- 
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-37-17.png>)
+
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-38-14.png>)
+
 Run from a different directory to confirm portability:
  
 ```bash
@@ -160,6 +169,7 @@ cd ~
 ~/aws-floci-course/scripts/utilities/lab-03-reachability.sh
 cd ~/aws-floci-course
 ```
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-38-34.png>)
  
 Result (identical from both invocations):
  
@@ -172,9 +182,9 @@ usms-db-02         10.0.4.19      -               UNREACHABLE  no igw route on s
 usms-admin-01-host 10.0.2.201     34.201.9.14     REACHABLE    igw route + sg allows 80/tcp from 0.0.0.0/0
 ```
  
-`REPO_ROOT` is resolved from `BASH_SOURCE[0]` rather than the caller's working directory, and `source configs/course.env 2>/dev/null || true` prevents the script from aborting if it is ever run before the environment file exists — both are why the output was identical regardless of the calling directory.
+`REPO_ROOT` is resolved from `BASH_SOURCE[0]` rather than the caller's working directory, and `source configs/course.env 2>/dev/null || true` prevents the script from aborting if it is ever run before the environment file exists - both are why the output was identical regardless of the calling directory.
  
-### Exercise 4 — Challenge: right-size and clean up
+### Exercise 4 - Challenge: right-size and clean up
  
 **Written analysis** (`labs/lab-03-ec2/exercises.md`):
  
@@ -188,8 +198,11 @@ aws ec2 describe-instance-credit-specifications \
   --query 'InstanceCreditSpecifications[0].{Instance:InstanceId,CpuCredits:CpuCredits}' \
   --output table
 ```
+
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-42-32.png>)
+
  
-*Cost comparison* (list prices, US East (N. Virginia), sourced from the AWS EC2 On-Demand pricing page — figures are illustrative and should be re-checked against current published rates before any real budgeting decision):
+*Cost comparison* (list prices, US East (N. Virginia), sourced from the AWS EC2 On-Demand pricing page —-figures are illustrative and should be re-checked against current published rates before any real budgeting decision):
  
 | Option | Approx. monthly cost (730 hrs) | Notes |
 |---|---|---|
@@ -210,7 +223,8 @@ Effect on later labs: none.
 aws ec2 terminate-instances --instance-ids "$ADMIN_INSTANCE_ID"
 aws ec2 wait instance-terminated --instance-ids "$ADMIN_INSTANCE_ID"
 ```
- 
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-43-58.png>)
+
 Read before running any delete command
 What will be deleted: the Availability-Zone-mismatch test volume created during Step 15's "Your turn" task.
 What depends on it: nothing — it was created solely to test the AZ constraint.
@@ -224,11 +238,15 @@ aws ec2 describe-volumes \
  
 aws ec2 delete-volume --volume-id "$TEST_VOLUME_ID"
 ```
+
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-46-20.png>)
  
 ```bash
 aws ec2 describe-addresses --filters "Name=tag:Project,Values=USMS" \
   --query 'Addresses[?InstanceId==`null`]' --output table
 ```
+
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-46-33.png>)
  
 Result: no unassociated Elastic IPs were found (`usms-nat-eip` and `usms-web-eip` were both associated), so no `release-address` call was needed.
  
@@ -237,10 +255,12 @@ Result: no unassociated Elastic IPs were found (`usms-nat-eip` and `usms-web-eip
 ```bash
 ./scripts/utilities/verify-lab-03.sh
 ```
+
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-47-35.png>)
  
-Result: `PASS=36  FAIL=0` — unchanged, confirming none of the deleted resources were tracked by `configs/lab-03.env`.
+Result: `PASS=48  FAIL=0` - unchanged, confirming none of the deleted resources were tracked by `configs/lab-03.env`.
  
-### Exercise 5 — Integration: prepare the S3 hand-off for Lab 4
+### Exercise 5 - Integration: prepare the S3 hand-off for Lab 4
  
 ```bash
 cat > labs/lab-03-ec2/transcript-upload.sh << 'EOF'
@@ -273,6 +293,11 @@ EOF
 chmod +x labs/lab-03-ec2/transcript-upload.sh
 bash -n labs/lab-03-ec2/transcript-upload.sh && echo "transcript-upload.sh syntax OK"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-54-04.png>)
+
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-54-23.png>)
+
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-54-47.png>)
  
 The script never references an access key or secret — `aws s3 cp` resolves credentials automatically from the instance's attached role via the metadata service on real AWS.
  
@@ -282,7 +307,9 @@ Confirming the outbound rule:
 aws ec2 describe-security-groups --group-ids "$USMS_APP_SG" \
   --query 'SecurityGroups[0].IpPermissionsEgress' --output json
 ```
- 
+
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-55-03.png>)
+
 No additional outbound rule was added. `usms-app-sg`'s default egress rule (all traffic, `0.0.0.0/0`) already permits outbound HTTPS, and security groups are stateful — the one sentence answer required by the exercise is that it is this pre-existing default-allow egress rule, not anything written in this lab, that makes the instance's outbound call to the S3 API (`tcp/443`) possible at all.
  
 Readiness file:
@@ -301,6 +328,7 @@ Readiness file:
  
 cat outputs/lab-03-s3-readiness.txt
 ```
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-55-19.png>)
  
 Expected/actual result: `head-bucket` failed (the bucket does not exist yet — the failure was captured in the file rather than suppressed), with a non-zero exit code and a `404`/`NoSuchBucket`-style message. This is the deliberate point of the exercise: Lab 04 re-runs the same `head-bucket` check immediately after creating the bucket, and the difference between this result and that one is the entire lesson of that step.
  
@@ -310,6 +338,7 @@ grep -q '^export USMS_BUCKET_NAME=' configs/lab-01.env 2>/dev/null \
  
 grep 'USMS_BUCKET_NAME' configs/lab-01.env configs/lab-03.env 2>/dev/null
 ```
+![alt text](<../../screenshots/Screenshot from 2026-09-22 11-55-32.png>)
  
 `USMS_BUCKET_NAME` was not already present in `configs/lab-01.env`, so it was appended to `configs/lab-03.env`, giving Lab 04 a single sourced name to create the bucket against rather than re-deriving it.
  
