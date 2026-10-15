@@ -69,6 +69,9 @@ ls -d labs/*
 ```
 
 ---
+## Architecture
+
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-31-34.png>)
 
 ## 4. Step-by-Step Implementation
 
@@ -175,7 +178,15 @@ Ready to build
 **Part 1 - assume the developer role**
 
 ```bash
-ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${USMS_ROLE_DEVELOPER}"
+# Load course variables (ACCOUNT_ID, USMS_ROLE_DEVELOPER, ...) into this shell
+for f in configs/course.env configs/lab-0{1,2,3}.env; do [ -f "$f" ] && source "$f"; done
+
+# USMS_ROLE_DEVELOPER (lab-01.env) is already a full role ARN
+ROLE_ARN="$USMS_ROLE_DEVELOPER"
+echo "Assuming: $ROLE_ARN"
+
+# Clear any old assumed-role credentials so --profile usms-dev is used
+unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 
 aws sts assume-role \
   --role-arn "$ROLE_ARN" \
@@ -189,13 +200,13 @@ export AWS_ACCESS_KEY_ID=$(jq -r '.Credentials.AccessKeyId'     outputs/lab-04-a
 export AWS_SECRET_ACCESS_KEY=$(jq -r '.Credentials.SecretAccessKey' outputs/lab-04-assumed-role.json)
 export AWS_SESSION_TOKEN=$(jq -r '.Credentials.SessionToken'    outputs/lab-04-assumed-role.json)
 
-aws sts get-caller-identity --no-cli-pager
+# AWS CLI v1 has no --no-cli-pager flag; AWS_PAGER="" does the same on v2
+AWS_PAGER="" aws sts get-caller-identity
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 00-45-34.png>)
 
-> ⚠️ These three exported variables outrank `--profile` until unset in Part 3. The session lasts one hour.
 
-<p align="center"><em>📸 Screenshot: sts get-caller-identity showing assumed-role/usms-developer-role/lab04-ecs-build</em></p>
-<br><br>
+
 
 **Part 2 – create the cluster**
 
@@ -211,15 +222,16 @@ CLUSTER_ARN=$(aws ecs create-cluster \
 
 echo "CLUSTER_ARN = $CLUSTER_ARN"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 00-46-33.png>)
 
-> Note the ECS tag casing: `key=Name,value=x` (lower case) — different from EC2's `Key=Name,Value=x`.
 
-**Part 3 – restore your normal identity**
+**Part 3 - restore your normal identity**
 
 ```bash
 unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 ./scripts/utilities/whoami.sh
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 00-50-06.png>)
 
 **Verify**
 
@@ -230,15 +242,11 @@ aws ecs describe-clusters \
   --query 'clusters[0].{Name:clusterName,Status:status,Services:activeServicesCount,Tasks:runningTasksCount,Settings:settings}' \
   --output json
 ```
-
-Look for: `Status: ACTIVE`, `Services: 0`, `Tasks: 0`, and `containerInsights = enabled` in Settings.
-
-<p align="center"><em>📸 Screenshot: describe-clusters output confirming ACTIVE cluster with Container Insights enabled</em></p>
-<br><br>
+![alt text](<../../screenshots/Screenshot from 2026-10-16 00-50-14.png>)
 
 ---
 
-### Step 5 – Create the log group the tasks will write to
+### Step 5 - Create the log group the tasks will write to
 
 ```bash
 LOG_GROUP="/usms/ecs/enrolment"
@@ -256,15 +264,13 @@ aws logs describe-log-groups \
   --query 'logGroups[].{Name:logGroupName,Retention:retentionInDays,Bytes:storedBytes}' \
   --output table
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 00-51-38.png>)
 
 **Verify:** one row, `Retention` exactly `7`.
 
-<p align="center"><em>📸 Screenshot: log group table with 7-day retention</em></p>
-<br><br>
-
 ---
 
-### Interlude — Task execution role vs. task role
+### Interlude - Task execution role vs. task role
 
 | | Task execution role | Task role |
 |---|---|---|
@@ -276,9 +282,9 @@ aws logs describe-log-groups \
 
 ---
 
-### Step 6 – Create the task execution role
+### Step 6 - Create the task execution role
 
-**Part 1 – trust policy**
+**Part 1 - trust policy**
 
 ```bash
 cat > policies/trust-ecs-tasks.json << 'EOF'
@@ -297,8 +303,9 @@ EOF
 
 python3 -m json.tool policies/trust-ecs-tasks.json > /dev/null && echo "valid JSON"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 00-53-13.png>)
 
-**Part 2 – create the role**
+**Part 2 - create the role**
 
 ```bash
 EXEC_ROLE_NAME="usms-ecs-exec-role"
@@ -313,8 +320,9 @@ EXEC_ROLE_ARN=$(aws iam create-role \
 
 echo "EXEC_ROLE_ARN = $EXEC_ROLE_ARN"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 00-53-27.png>)
 
-**Part 3 – least-privilege permissions**
+**Part 3 - least-privilege permissions**
 
 ```bash
 cat > policies/usms-ecs-task-execution-policy.json << 'EOF'
@@ -360,6 +368,7 @@ aws iam attach-role-policy \
 
 echo "EXEC_POLICY_ARN = $EXEC_POLICY_ARN"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 00-54-02.png>)
 
 **Verify**
 
@@ -370,15 +379,13 @@ aws iam get-role --role-name "$EXEC_ROLE_NAME" \
 aws iam list-attached-role-policies --role-name "$EXEC_ROLE_NAME" \
   --query 'AttachedPolicies[].PolicyName' --output text
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 00-54-27.png>)
 
 Check: principal is `{"Service": "ecs-tasks.amazonaws.com"}` (not `ecs.amazonaws.com`); attached policy list contains `USMSECSTaskExecution`.
 
-<p align="center"><em>📸 Screenshot: execution role trust principal + attached policy</em></p>
-<br><br>
-
 ---
 
-### Step 7 – Create the task role, and reuse Lab 1's policy on it
+### Step 7 - Create the task role, and reuse Lab 1's policy on it
 
 ```bash
 TASK_ROLE_NAME="usms-ecs-task-role"
@@ -395,29 +402,28 @@ echo "TASK_ROLE_ARN = $TASK_ROLE_ARN"
 
 aws iam attach-role-policy \
   --role-name "$TASK_ROLE_NAME" \
-  --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${USMS_POLICY_S3_RW}"
+  --policy-arn "$USMS_POLICY_S3_RW"   # already a full ARN (lab-01.env)
 
 aws iam list-attached-role-policies --role-name "$TASK_ROLE_NAME" \
   --query 'AttachedPolicies[].{Policy:PolicyName,Arn:PolicyArn}' --output table
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 00-56-28.png>)
 
-**Verify — and read the policy back**
+**Verify - and read the policy back**
 
 ```bash
-POLICY_ARN="arn:aws:iam::${ACCOUNT_ID}:policy/${USMS_POLICY_S3_RW}"
+POLICY_ARN="$USMS_POLICY_S3_RW"   # already a full ARN (lab-01.env)
 DEFAULT_VERSION=$(aws iam get-policy --policy-arn "$POLICY_ARN" \
   --query 'Policy.DefaultVersionId' --output text)
 
 aws iam get-policy-version --policy-arn "$POLICY_ARN" --version-id "$DEFAULT_VERSION" \
   --query 'PolicyVersion.Document' --output json | tee outputs/lab-04-task-role-policy.json
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-00-04.png>)
 
-Confirm this is the same `USMSStudentDataReadWrite` document Lab 3 Step 11 printed — reused unchanged, now on two different compute mechanisms (instance profile vs. task role).
+Confirm this is the same `USMSStudentDataReadWrite` document Lab 3 Step 11 printed - reused unchanged, now on two different compute mechanisms (instance profile vs. task role).
 
-<p align="center"><em>📸 Screenshot: task role attached policy + policy document</em></p>
-<br><br>
-
-#### ✅ Checkpoint 2
+#### Checkpoint 2
 
 ```
 usms-ecs-cluster  (ACTIVE, 0 services, 0 tasks)
@@ -428,12 +434,9 @@ usms-ecs-cluster  (ACTIVE, 0 services, 0 tasks)
       └── USMSStudentDataReadWrite  <- Lab 01's policy, unchanged, reused
 ```
 
-<p align="center"><em>📸 Screenshot: Checkpoint 2 evidence</em></p>
-<br><br>
-
 ---
 
-### Step 8 – Create the enrolment security group (sourced from the web tier's group)
+### Step 8 - Create the enrolment security group (sourced from the web tier's group)
 
 ```bash
 ENROLMENT_SG=$(aws ec2 create-security-group \
@@ -468,8 +471,9 @@ aws ec2 authorize-security-group-ingress \
   --query 'SecurityGroupRules[].SecurityGroupRuleId' \
   --output text
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-01-42.png>)
 
-> ⚠️ This heredoc is **unquoted** (`<< EOF`) because `$USMS_APP_SG` must be substituted at write time.
+> This heredoc is **unquoted** (`<< EOF`) because `$USMS_APP_SG` must be substituted at write time.
 
 **Verify**
 
@@ -478,17 +482,15 @@ aws ec2 describe-security-groups --group-ids "$ENROLMENT_SG" \
   --query 'SecurityGroups[0].{Name:GroupName,Inbound:IpPermissions[].{Port:FromPort,FromGroup:UserIdGroupPairs[0].GroupId,FromCIDR:IpRanges[0].CidrIp},OutboundRules:length(IpPermissionsEgress)}' \
   --output json
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-02-08.png>)
 
 Look for: one inbound rule on port 80, `FromGroup` = your `$USMS_APP_SG`, `FromCIDR` = null, `OutboundRules` = 1.
 
-<p align="center"><em>📸 Screenshot: describe-security-groups showing group-referenced ingress rule</em></p>
-<br><br>
-
 ---
 
-### Step 9 – Write and register the task definition
+### Step 9 - Write and register the task definition
 
-**Part 1 – write the document**
+**Part 1 - write the document**
 
 ```bash
 cat > templates/lab-04-taskdef.json << EOF
@@ -537,6 +539,11 @@ python3 -m json.tool templates/lab-04-taskdef.json > /dev/null \
 
 grep -c '\$' templates/lab-04-taskdef.json
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-07-09.png>)
+
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-07-52.png>)
+
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-08-03.png>)
 
 > The `grep -c '\$'` count **must print `0`** — any other number means a variable was empty or the heredoc quoting was wrong.
 
@@ -556,6 +563,7 @@ TASK_DEF_REVISION=$(aws ecs describe-task-definition \
 echo "TASK_DEF_ARN      = $TASK_DEF_ARN"
 echo "TASK_DEF_REVISION = $TASK_DEF_REVISION"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-09-15.png>)
 
 **Verify**
 
@@ -564,13 +572,13 @@ aws ecs describe-task-definition --task-definition usms-enrolment \
   --query 'taskDefinition.{Family:family,Revision:revision,Status:status,Network:networkMode,CPU:cpu,Memory:memory,Compat:requiresCompatibilities,Exec:executionRoleArn,Task:taskRoleArn,Container:containerDefinitions[0].name,Image:containerDefinitions[0].image,LogGroup:containerDefinitions[0].logConfiguration.options."awslogs-group"}' \
   --output json
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-09-28.png>)
 
 Check: `Status = ACTIVE`, `Network = awsvpc`, `Exec` and `Task` are **two different** ARNs.
 
-<p align="center"><em>📸 Screenshot: registered task definition detail (revision, roles, image, log group)</em></p>
-<br><br>
 
-#### ✅ Checkpoint 3
+
+#### Checkpoint 3
 
 ```
 usms-enrolment:1   ACTIVE
@@ -580,13 +588,9 @@ usms-enrolment:1   ACTIVE
  ├── taskRoleArn       usms-ecs-task-role
  └── logs -> /usms/ecs/enrolment, stream prefix "enrolment"
 ```
-
-<p align="center"><em>📸 Screenshot: Checkpoint 3 evidence</em></p>
-<br><br>
-
 ---
 
-### Step 10 – Create the service in Lab 2's private subnets
+### Step 10 - Create the service in Lab 2's private subnets
 
 ```bash
 SERVICE_NAME="usms-enrolment-svc"
@@ -606,11 +610,14 @@ SERVICE_ARN=$(aws ecs create-service \
 
 echo "SERVICE_ARN = $SERVICE_ARN"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-10-59.png>)
 
 > If `--network-configuration` shorthand rejects the syntax, generate the skeleton and use a JSON document instead:
 > ```bash
 > aws ecs create-service --generate-cli-skeleton > outputs/lab-04-create-service-skeleton.json
 > ```
+
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-11-20.png>)
 
 **Wait for it to stabilise**
 
@@ -631,13 +638,11 @@ for i in $(seq 1 12); do
   sleep 5
 done
 ```
-
-<p align="center"><em>📸 Screenshot: create-service output + stabilisation wait</em></p>
-<br><br>
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-12-54.png>)
 
 ---
 
-### Step 11 – Read the service back, and learn the four numbers
+### Step 11 - Read the service back, and learn the four numbers
 
 ```bash
 aws ecs describe-services \
@@ -657,6 +662,7 @@ aws ecs describe-services \
     }' \
   --output json
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-14-27.png>)
 
 | Field | Meaning | If wrong |
 |---|---|---|
@@ -675,10 +681,9 @@ aws ecs describe-services --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" \
   --query 'services[0].events[0:3].[createdAt,message]' --output text
 ```
 
-<p align="center"><em>📸 Screenshot: describe-services four-number summary + task list + events</em></p>
-<br><br>
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-15-14.png>)
 
-#### ✏️ Your turn — scale by hand
+#### Your turn - scale by hand
 
 ```bash
 aws ecs update-service --cluster "$CLUSTER_NAME" --service "$SERVICE_NAME" --desired-count 3
@@ -687,13 +692,11 @@ aws ecs wait services-stable --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME
 aws ecs update-service --cluster "$CLUSTER_NAME" --service "$SERVICE_NAME" --desired-count 2
 aws ecs wait services-stable --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-17-00.png>)
 
 **Expected:** `desiredCount` moves to 3, then back to 2; the service's `events` list gains new entries.
 
-<p align="center"><em>📸 Screenshot: manual scale to 3 and back to 2, with events showing the change</em></p>
-<br><br>
-
-#### ✅ Checkpoint 4
+#### Checkpoint 4
 
 ```
 usms-ecs-cluster
@@ -705,13 +708,9 @@ usms-ecs-cluster
       ├── assignPublicIp         DISABLED
       └── image pulled via       usms-private-rt -> usms-nat -> usms-igw
 ```
-
-<p align="center"><em>📸 Screenshot: Checkpoint 4 evidence</em></p>
-<br><br>
-
 ---
 
-### Step 12 – Write `configs/lab-04.env`
+### Step 12 - Write `configs/lab-04.env`
 
 ```bash
 cat > configs/lab-04.env << EOF
@@ -762,8 +761,9 @@ EOF
 
 grep -n 'export .*=$\|None' configs/lab-04.env || echo "all values populated"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-18-39.png>)
 
-> ⚠️ Unquoted heredoc (`<< EOF`, not `<< 'EOF'`) — every `$(...)` must run **now**, not when the file is later sourced.
+> Unquoted heredoc (`<< EOF`, not `<< 'EOF'`) — every `$(...)` must run **now**, not when the file is later sourced.
 
 **Verify**
 
@@ -782,17 +782,15 @@ printf '%-26s %s\n' \
 
 grep -c '^export' configs/lab-04.env
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-19-00.png>)
 
 Expect: all values populated, and a count of **17** exported variables. `baseline desired` must read `2`.
 
-<p align="center"><em>📸 Screenshot: configs/lab-04.env verification output</em></p>
-<br><br>
-
 ---
 
-### Step 13 – Commit
+### Step 13 - Commit
 
-**Part 1 – look before you add**
+**Part 1 - look before you add**
 
 ```bash
 git status --short
@@ -802,16 +800,15 @@ git ls-files outputs/
 ```
 
 Checklist before committing:
-- [ ] No path under `outputs/` appears in `git status --short`
-- [ ] No `.env` at the repository root appears
-- [ ] `configs/lab-04.env` does appear (names/ARNs only, no secrets)
-- [ ] `git check-ignore -v` names the file, rule, and line number
-- [ ] `git ls-files outputs/` lists only `outputs/.gitkeep`
+- [x] No path under `outputs/` appears in `git status --short`
+- [x] No `.env` at the repository root appears
+- [x] `configs/lab-04.env` does appear (names/ARNs only, no secrets)
+- [x] `git check-ignore -v` names the file, rule, and line number
+- [x] `git ls-files outputs/` lists only `outputs/.gitkeep`
 
-<p align="center"><em>📸 Screenshot: git status / check-ignore / ls-files output</em></p>
-<br><br>
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-20-33.png>)
 
-**Part 2 – commit**
+**Part 2 - commit**
 
 ```bash
 git add labs/lab-04-ecs/ \
@@ -830,10 +827,9 @@ git commit -m "Lab 04: USMS enrolment service deployed on ECS Fargate - cluster,
 git log --oneline -5
 ```
 
-<p align="center"><em>📸 Screenshot: git commit result + git log</em></p>
-<br><br>
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-21-31.png>)
 
-#### ✅ Checkpoint 5
+#### Checkpoint 5
 
 ```
 Lab 04 recorded
@@ -843,9 +839,6 @@ Lab 04 recorded
  ├── outputs/                   nothing staged, and check-ignore proves the rule
  └── git log shows Lab 01, 02, 03 and 04 commits
 ```
-
-<p align="center"><em>📸 Screenshot: Checkpoint 5 evidence</em></p>
-<br><br>
 
 ---
 
@@ -985,12 +978,9 @@ bash -n scripts/utilities/verify-lab-04.sh && echo "syntax OK"
 | Log group retention policy set | Some builds ignore `put-retention-policy` |
 | Service spans TWO subnets | Real failure — go back and complete Lab 2 Exercise 5 |
 
-<p align="center"><em>📸 Screenshot: verify-lab-04.sh full output, PASS/FAIL summary</em></p>
-<br><br>
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-22-50.png>)
 
 ### 5.2 Build the end-of-course cleanup script
-
-> ⚠️ **DO NOT RUN THIS SCRIPT NOW.** It is destructive and irreversible; run only at the very end of the course, after `lab-06-cleanup.sh` and `lab-05-cleanup.sh`, and before `lab-02-cleanup.sh`.
 
 ```bash
 cat > scripts/cleanup/lab-04-cleanup.sh << 'EOF'
@@ -1064,10 +1054,7 @@ EOF
 chmod +x scripts/cleanup/lab-04-cleanup.sh
 bash -n scripts/cleanup/lab-04-cleanup.sh && echo "syntax OK - do NOT run it"
 ```
-
-<p align="center"><em>📸 Screenshot: cleanup script syntax check ("syntax OK - do NOT run it")</em></p>
-<br><br>
-
+![alt text](<../../screenshots/Screenshot from 2026-10-16 01-25-00.png>)
 ---
 
 ## 6. Troubleshooting Notes
@@ -1085,7 +1072,7 @@ bash -n scripts/cleanup/lab-04-cleanup.sh && echo "syntax OK - do NOT run it"
 
 ---
 
-## 7. Floci vs Real AWS — Observed vs Conceptual
+## 7. Floci vs Real AWS - Observed vs Conceptual
 
 **OBSERVABLE (I actually saw this happen):**
 - A cluster, a task definition family with an immutable revision, and a service
@@ -1093,7 +1080,43 @@ bash -n scripts/cleanup/lab-04-cleanup.sh && echo "syntax OK - do NOT run it"
 - Two ECS roles with the same trust policy and different attached permissions
 - Lab 01's `USMSStudentDataReadWrite` attached to a second, different kind of compute
 - A group-referenced security group rule
-- `desiredCount` changed by hand with `update-service`, narrated in the service's events
+- `desiredCount` changed by h                                Internet
+                                    |
+                          +---------+---------+
+                          |     usms-igw      |
+                          +---------+---------+
+                                    |
+  ==================================|=========================================
+  ||  usms-vpc  10.0.0.0/16         |                                       ||
+  ||   usms-public-rt  0.0.0.0/0 ---+                                        ||
+  ||        |                                                               ||
+  ||   +----+--------------------------------------------------------+       ||
+  ||   | usms-public-subnet-a  10.0.1.0/24  us-east-1a               |       ||
+  ||   |   [ usms-web-01 ]  usms-app-sg    <- Lab 03                 |       ||
+  ||   |   [ usms-nat    ]  Elastic IP     <- Lab 02                 |       ||
+  ||   +----+---------------------------------------------------+----+       ||
+  ||        |  tcp/80, source = usms-app-sg                     |            ||
+  ||        v                                                   |  outbound  ||
+  ||   +------------------------------------------------+       |  image     ||
+  ||   |  usms-enrolment-sg   in: tcp/80 from usms-app-sg |       |  pull      ||
+  ||   +------------------------------------------------+       |            ||
+  ||        |                          |                        v            ||
+  ||   +----+-----------------+   +----+-----------------+  usms-private-rt  ||
+  ||   | usms-private-        |   | usms-private-        |  0.0.0.0/0        ||
+  ||   |   subnet-a           |   |   subnet-b           |    -> usms-nat    ||
+  ||   | 10.0.3.0/24  AZ a    |   | 10.0.4.0/24  AZ b    |  pl-... -> S3     ||
+  ||   |                      |   |                      |     endpoint      ||
+  ||   |  [ task 1 ]          |   |  [ task 2 ]          |                   ||
+  ||   |  [ usms-db-01 ]      |   |                      |                   ||
+  ||   +----------------------+   +----------------------+                   ||
+  ||                                                                        ||
+  ||   ECS control plane                                                    ||
+  ||     usms-ecs-cluster                                                   ||
+  ||       usms-enrolment-svc      desiredCount  <---- fixed by hand here   ||
+  ||         task definition usms-enrolment:1                               ||
+  ||           execution role usms-ecs-exec-role  -> pull image, write logs ||
+  ||           task role      usms-ecs-task-role  -> USMSStudentDataReadWrite||
+  ==========================================================================and with `update-service`, narrated in the service's events
 
 **CONCEPTUAL (reasoned about, not directly observed):**
 - A container actually running, serving, or logging
@@ -1108,62 +1131,36 @@ My support path from Step 3: **______** (state which items moved from the second
 ## 8. Lab Assessment Checklist
 
 **Environment**
-- [ ] Floci runs under Docker Compose; storage check reports `FAIL=0`
-- [ ] `whoami.sh` reports account `000000000000`
-- [ ] Step 3 support path (A/B/C) recorded in `notes/lab-04-notes.md`
+- [x] Floci runs under Docker Compose; storage check reports `FAIL=0`
+- [x] `whoami.sh` reports account `000000000000`
+- [x] Step 3 support path (A/B/C) recorded in `notes/lab-04-notes.md`
 
 **Resources**
-- [ ] `usms-ecs-cluster` is `ACTIVE`
-- [ ] `/usms/ecs/enrolment` exists with a retention policy set
-- [ ] `usms-ecs-exec-role` and `usms-ecs-task-role` both exist and trust `ecs-tasks.amazonaws.com`
-- [ ] `usms-ecs-task-role` carries Lab 1's `USMSStudentDataReadWrite`, not a new copy
-- [ ] `usms-enrolment:1` registered, `awsvpc`, `FARGATE`, two different role ARNs
-- [ ] `usms-enrolment-svc` `ACTIVE`, spans two private subnets, `assignPublicIp DISABLED`, desired count 2
-- [ ] `usms-enrolment-sg` admits `tcp/80` from `usms-app-sg` by group reference, nothing from `0.0.0.0/0`
+- [x] `usms-ecs-cluster` is `ACTIVE`
+- [x] `/usms/ecs/enrolment` exists with a retention policy set
+- [x] `usms-ecs-exec-role` and `usms-ecs-task-role` both exist and trust `ecs-tasks.amazonaws.com`
+- [x] `usms-ecs-task-role` carries Lab 1's `USMSStudentDataReadWrite`, not a new copy
+- [x] `usms-enrolment:1` registered, `awsvpc`, `FARGATE`, two different role ARNs
+- [x] `usms-enrolment-svc` `ACTIVE`, spans two private subnets, `assignPublicIp DISABLED`, desired count 2
+- [x] `usms-enrolment-sg` admits `tcp/80` from `usms-app-sg` by group reference, nothing from `0.0.0.0/0`
 
 **Evidence**
-- [ ] Step 11 "Your turn" recorded (desiredCount 2 → 3 → 2, with events)
-- [ ] Exercise 5's `outputs/lab-04-lab03-linkage.txt` with `LOOP CLOSED` verdict or explained mismatch
-- [ ] Screenshots captured for Checkpoints 2, 3, and 4
+- [x] Step 11 "Your turn" recorded (desiredCount 2 → 3 → 2, with events)
+- [x] Exercise 5's `outputs/lab-04-lab03-linkage.txt` with `LOOP CLOSED` verdict or explained mismatch
+- [x] Screenshots captured for Checkpoints 2, 3, and 4
 
 **Hygiene & written work**
-- [ ] `configs/lab-04.env` exists, committed, 17 exports, no empty values or `None`
-- [ ] `scripts/utilities/verify-lab-04.sh` reports `FAIL=0` (or documented benign failures)
-- [ ] `scripts/cleanup/lab-04-cleanup.sh` exists, passes `bash -n`, has **not** been run
-- [ ] `git status --short` shows nothing under `outputs/`
-- [ ] `git check-ignore -v outputs/lab-04-assumed-role.json` names the rule and line
-- [ ] `notes/lab-04-notes.md` answers all review questions
-- [ ] `labs/lab-04-ecs/exercises.md` contains all five exercises
-- [ ] Every Floci limitation hit is recorded, with what real AWS would have done
-
+- [x] `configs/lab-04.env` exists, committed, 17 exports, no empty values or `None`
+- [x] `scripts/utilities/verify-lab-04.sh` reports `FAIL=0` (or documented benign failures)
+- [x] `scripts/cleanup/lab-04-cleanup.sh` exists, passes `bash -n`, has **not** been run
+- [x] `git status --short` shows nothing under `outputs/`
+- [x] `git check-ignore -v outputs/lab-04-assumed-role.json` names the rule and line
+- [x] `notes/lab-04-notes.md` answers all review questions
+- [x] `labs/lab-04-ecs/exercises.md` contains all five exercises
+- [x] Every Floci limitation hit is recorded, with what real AWS would have done
 ---
 
-## 9. Review Questions (answer in prose in `notes/lab-04-notes.md`)
-
-1. A colleague says *"I put auto scaling on the task definition."* Explain every way this is wrong: what auto scaling actually attaches to, what it modifies, and which ECS object does the work of matching reality to it.
-2. Lab 1 wrote `USMSStudentDataReadWrite` for a bucket that didn't exist. Explain what the instance profile (Lab 3) and the task role (Lab 4) each do at runtime, why neither needs a key on disk, and what changes for both the moment the bucket exists.
-3. Give a one-sentence failure symptom that distinguishes the task execution role from the task role, and explain why both share an identical trust policy despite different jobs.
-4. Explain why `usms-enrolment-sg`'s rule sources `usms-app-sg` rather than a CIDR block — both why it's correct even with a fixed task count, and why it becomes close to mandatory once Lab 06 lets the count change.
-5. Explain what Fargate removes from the EC2 model (Lab 3) and what it does not remove, using the task's own security group and route-table behaviour as evidence.
-6. Name one command against this lab's resources that would look identical whether Floci is in memory mode or hybrid mode, and one that would not — and explain the difference.
-
----
-
-## 10. Independent Exercises Summary
-
-| # | Exercise | Status |
-|---|---|---|
-| 1 | Basic — second service `usms-results-svc` deployed | ☐ |
-| 2 | Intermediate — `usms-enrolment:2` new revision, memory 512→1024 MiB, zero-downtime update | ☐ |
-| 3 | Problem solving — `lab-04-ecs-inventory.sh` drift report | ☐ |
-| 4 | Challenge — enrolment week capacity plan + cost comparison + teardown of results service | ☐ |
-| 5 | Integration — resolve `usms-enrolment-sg` back to `usms-web-01`, write linkage file | ☐ |
-
-Full write-ups and command transcripts for all five exercises go in `labs/lab-04-ecs/exercises.md`.
-
----
-
-## 11. What Was Built — Summary
+## 10. What Was Built - Summary
 
 ```
 Lab 04  COMPUTE - deployed, standing still
@@ -1173,10 +1170,10 @@ Lab 04  COMPUTE - deployed, standing still
 ```
 
 **Key takeaways:**
-- ECS's four objects — cluster (namespace), task definition (immutable blueprint), task (one running instance), service (controller keeping `runningCount = desiredCount`) — stay cleanly separated.
+- ECS's four objects - cluster (namespace), task definition (immutable blueprint), task (one running instance), service (controller keeping `runningCount = desiredCount`) - stay cleanly separated.
 - `USMSStudentDataReadWrite` from Lab 1 now backs two completely different compute mechanisms (EC2 instance profile and ECS task role) with zero changes and no key on disk.
 - Lab 2's NAT gateway, private route table, and S3 endpoint are what let a task in a private subnet pull its container image at all.
-- `desiredCount` is the only number this lab (or, later, auto scaling) ever touches — everything else is the service reconciling toward it.
+- `desiredCount` is the only number this lab (or, later, auto scaling) ever touches - everything else is the service reconciling toward it.
 
 ### KEEP vs CLEAN UP
 
@@ -1203,7 +1200,7 @@ git status --short
 
 ---
 
-## 12. Preparation for the Next Lab (Lab 05 — ALB)
+## 11. Preparation for the Next Lab (Lab 05 - ALB)
 
 ```bash
 cd ~/aws-floci-course
@@ -1230,14 +1227,11 @@ tar -czf ~/floci-data-lab-04.tar.gz -C ~ floci-data
 ls -lh ~/floci-data-lab-04.tar.gz
 ```
 
-<p align="center"><em>📸 Screenshot: final verify-lab-04.sh PASS=38 FAIL=0 + snapshot confirmation</em></p>
-<br><br>
 
 ---
 
-## 13. Conclusion
+## 12. Conclusion
 
 Lab 04 successfully containerised the USMS enrolment service onto Amazon ECS on Fargate, running inside the private subnets built in Lab 02, protected by IAM roles built in this lab, and permissioned through a policy reused unchanged from Lab 01. The service (`usms-enrolment-svc`) was verified `ACTIVE`, spans both Availability Zones, and stands at a fixed `desiredCount` of 2, ready to be placed behind a load balancer in Lab 05 and handed over to Application Auto Scaling in Lab 06.
 
-**Submitted by:** Kuenzang
-**Date:** _______________
+
