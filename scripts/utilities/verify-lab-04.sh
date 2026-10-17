@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Verify every Lab 04 artefact exists and is configured correctly.
 # Exit 1 if anything is missing. Read-only; safe to run at any time.
+# Expected result: PASS=39 FAIL=0 after Lab 05 (configs/lab-05.env present);
+#                  PASS=38 FAIL=0 after Lab 04 only. Any other count means a check
+#                  was added, removed or skipped - find out which before trusting a FAIL=0.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -10,6 +13,7 @@ source "$REPO_ROOT/configs/lab-01.env" 2>/dev/null || true
 source "$REPO_ROOT/configs/lab-02.env" 2>/dev/null || true
 source "$REPO_ROOT/configs/lab-03.env" 2>/dev/null || true
 source "$REPO_ROOT/configs/lab-04.env" 2>/dev/null || true
+source "$REPO_ROOT/configs/lab-05.env" 2>/dev/null || true   # USMS_ALB_SG, if Lab 05 is done
 
 : "${USMS_APP_SG:=none}"
 : "${USMS_PRIVATE_SUBNET_A:=none}"
@@ -92,8 +96,31 @@ check "service desiredCount is 2 (one task per Availability Zone)" \
 
 echo "== Lab 04 networking =="
 check "usms-enrolment-sg exists"  "aws ec2 describe-security-groups --group-ids $USMS_ENROLMENT_SG"
-check "usms-enrolment-sg is sourced from usms-app-sg (not a CIDR)" \
-  "test \"\$(aws ec2 describe-security-groups --group-ids $USMS_ENROLMENT_SG --query 'SecurityGroups[0].IpPermissions[0].UserIdGroupPairs[0].GroupId' --output text)\" = $USMS_APP_SG"
+# Property asserted (Lab 04 Step 8, kept after Lab 05 Step 13):
+#   "usms-enrolment-sg accepts traffic only from a named security group, never a CIDR,
+#    and that group is the one caller the current architecture intends."
+# Lab 04 that caller is usms-app-sg (the web tier). Lab 05's cutover makes it usms-alb-sg,
+# so once configs/lab-05.env exists the same property is checked against usms-alb-sg.
+# USMS_ALB_SG is read from configs/lab-05.env, never hard-coded. If the file does not exist
+# (Lab 04 done, Lab 05 not yet) the Lab 04 form is checked, so this script still runs.
+SG_SOURCES() {   # every inbound source of usms-enrolment-sg: group IDs, then any CIDRs
+  aws ec2 describe-security-groups --group-ids "$USMS_ENROLMENT_SG" \
+    --query 'SecurityGroups[0].IpPermissions[].[UserIdGroupPairs[].GroupId, IpRanges[].CidrIp]' \
+    --output text | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u | paste -sd' ' -
+}
+if [ -f "$REPO_ROOT/configs/lab-05.env" ]; then
+  : "${USMS_ALB_SG:=}"   # set -u safe: missing in lab-05.env -> empty -> readable FAIL below
+  check "usms-enrolment-sg accepts traffic only from a named group, and that group is usms-alb-sg (${USMS_ALB_SG:-USMS_ALB_SG MISSING from configs/lab-05.env})" \
+    "test -n \"$USMS_ALB_SG\" && test \"\$(SG_SOURCES)\" = \"$USMS_ALB_SG\""
+  # A check that only asked "is usms-alb-sg a source?" would still pass with BOTH rules in
+  # place (cutover never done, or the old rule re-added). The check above already demands
+  # the ALB group ALONE; this one names that regression so a failure says what came back.
+  check "usms-app-sg is no longer a source of usms-enrolment-sg (Lab 05 cutover held)" \
+    "! SG_SOURCES | tr ' ' '\n' | grep -qx \"$USMS_APP_SG\""
+else
+  check "usms-enrolment-sg is sourced from usms-app-sg (not a CIDR)" \
+    "test \"\$(aws ec2 describe-security-groups --group-ids $USMS_ENROLMENT_SG --query 'SecurityGroups[0].IpPermissions[0].UserIdGroupPairs[0].GroupId' --output text)\" = $USMS_APP_SG"
+fi
 check "usms-enrolment-sg admits NOTHING from 0.0.0.0/0" \
   "! aws ec2 describe-security-groups --group-ids $USMS_ENROLMENT_SG --query 'SecurityGroups[0].IpPermissions[].IpRanges[].CidrIp' --output text | grep -q '0.0.0.0/0'"
 
