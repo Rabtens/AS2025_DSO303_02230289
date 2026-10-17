@@ -1,55 +1,59 @@
-# DSO303 — Lab 06: Implementing Auto Scaling for an ECS-Based Application
+# DSO303 - Lab 06: Implementing Auto Scaling for an ECS-Based Application
 
-**Practical 3 — Handing the enrolment service's capacity to Application Auto Scaling**
-
-| | |
-|---|---|
-| **Student Name** | Kuenzang |
-| **Institution** | College of Science and Technology (CST), Bhutan |
-| **Course** | DSO303 |
-| **Lab** | Lab 06 — Auto Scaling |
-| **Date** | *(fill in date)* |
-| **Support Path** | Path A / B / C *(circle one — see Step 3)* |
+**Practical 3 - Handing the enrolment service's capacity to Application Auto Scaling**
 
 ---
 
 ## Table of Contents
 
-1. [Lab Overview](#1-lab-overview)
-2. [Learning Objectives](#2-learning-objectives)
-3. [Prerequisites](#3-prerequisites)
-4. [Step 1 — Resume the environment and load six env files](#step-1)
-5. [Step 2 — Confirm Labs 02, 03, 04 and 05 are still intact](#step-2)
-6. [Step 3 — Probe what this Floci build supports](#step-3)
-7. [Step 4 — Create the service-linked role](#step-4)
-8. [Step 5 — Register the scalable target](#step-5)
-9. [Step 6 — Change the bounds / re-registration](#step-6)
-10. [Step 7 — Create the CPU target tracking policy](#step-7)
-11. [Step 8 — Read the two managed alarms](#step-8)
-12. [Step 9 — Create the request-count policy](#step-9)
-13. [Step 10 — Create a step scaling policy + alarm](#step-10)
-14. [Step 11 — Create two scheduled actions](#step-11)
-15. [Step 12 — Fire the alarm and prove it](#step-12)
-16. [Step 13 — Suspend and resume scaling](#step-13)
-17. [Step 14 — Prove persistence across a restart](#step-14)
-18. [Step 15 — Trace the full request-to-task chain](#step-15)
-19. [Step 16 — Write configs/lab-06.env](#step-16)
-20. [Step 17 — Commit, and repair two stale strings](#step-17)
-21. [Section 9 — Build and run verify-lab-06.sh](#section-9)
-22. [Section 9.3 — Build (do NOT run) lab-06-cleanup.sh](#section-93)
-23. [Checkpoints Summary](#checkpoints-summary)
-24. [Troubleshooting Log](#troubleshooting-log)
-25. [Floci vs Real AWS — Observations](#floci-vs-real-aws)
-26. [Review Questions](#review-questions)
-27. [Conclusion](#conclusion)
+- [DSO303 - Lab 06: Implementing Auto Scaling for an ECS-Based Application](#dso303---lab-06-implementing-auto-scaling-for-an-ecs-based-application)
+  - [Table of Contents](#table-of-contents)
+  - [1. Lab Overview](#1-lab-overview)
+  - [2. Learning Objectives](#2-learning-objectives)
+  - [3. Prerequisites](#3-prerequisites)
+    - [Environment check](#environment-check)
+    - [Prior-lab measurements](#prior-lab-measurements)
+  - [Step 1 - Resume the environment and load six env files](#step-1---resume-the-environment-and-load-six-env-files)
+  - [Step 2 - Confirm Labs 02, 03, 04 and 05 are still intact](#step-2---confirm-labs-02-03-04-and-05-are-still-intact)
+  - [Step 3 - Probe what this Floci build supports](#step-3---probe-what-this-floci-build-supports)
+    - [Checkpoint 1](#checkpoint-1)
+  - [Step 4 - Create the service-linked role that writes desiredCount](#step-4---create-the-service-linked-role-that-writes-desiredcount)
+  - [Step 5 - Register the scalable target](#step-5---register-the-scalable-target)
+  - [Step 6 - Change the bounds, and learn what a re-registration is](#step-6---change-the-bounds-and-learn-what-a-re-registration-is)
+    - [Your turn](#your-turn)
+    - [Checkpoint 2](#checkpoint-2)
+  - [Step 7 - Create the CPU target tracking policy](#step-7---create-the-cpu-target-tracking-policy)
+  - [Step 8 - Read the two alarms that target tracking created for you](#step-8---read-the-two-alarms-that-target-tracking-created-for-you)
+    - [Your turn](#your-turn-1)
+  - [Step 9 - Create the request-count policy](#step-9---create-the-request-count-policy)
+    - [Checkpoint 3](#checkpoint-3)
+  - [Step 10 - Create a step scaling policy, and the alarm that drives it](#step-10---create-a-step-scaling-policy-and-the-alarm-that-drives-it)
+  - [Step 11 - Create two scheduled actions](#step-11---create-two-scheduled-actions)
+    - [Your turn - one-off scheduled action](#your-turn---one-off-scheduled-action)
+    - [Checkpoint 4](#checkpoint-4)
+  - [Step 12 — Fire the alarm, and prove that something other than you moved the number](#step-12--fire-the-alarm-and-prove-that-something-other-than-you-moved-the-number)
+    - [Checkpoint 5](#checkpoint-5)
+  - [Step 13 — Suspend and resume scaling](#step-13--suspend-and-resume-scaling)
+    - [Checkpoint 6](#checkpoint-6)
+  - [Step 14 — Prove the whole scaling configuration survives a restart](#step-14--prove-the-whole-scaling-configuration-survives-a-restart)
+    - [Checkpoint 7](#checkpoint-7)
+  - [Step 15 — Close the loop: from one request to one new task](#step-15--close-the-loop-from-one-request-to-one-new-task)
+  - [Step 16 — Write configs/lab-06.env](#step-16--write-configslab-06env)
+  - [Step 17 — Commit, and repair two stale strings](#step-17--commit-and-repair-two-stale-strings)
+    - [Checkpoint 8](#checkpoint-8)
+  - [Section 9 — Build and run verify-lab-06.sh](#section-9--build-and-run-verify-lab-06sh)
+  - [Section 9.3 — Build (do NOT run) lab-06-cleanup.sh](#section-93--build-do-not-run-lab-06-cleanupsh)
+  - [Checkpoints Summary](#checkpoints-summary)
+  - [Troubleshooting Log](#troubleshooting-log)
+  - [Floci vs Real AWS — Observations](#floci-vs-real-aws--observations)
+  - [Conclusion](#conclusion)
 
----
 
 ## 1. Lab Overview
 
 This lab replaces manual capacity management (`aws ecs update-service --desired-count`) with **Application Auto Scaling**, which watches a metric, decides how many tasks `usms-enrolment-svc` needs, and writes `desiredCount` automatically.
 
-> **Key idea:** Application Auto Scaling writes **ONE INTEGER** (`desiredCount`). It does not start tasks, talk to containers, or know anything about the application. Everything after that is machinery already built in Labs 02–05:
+> **Key idea:** Application Auto Scaling writes **ONE INTEGER** (`desiredCount`). It does not start tasks, talk to containers, or know anything about the application. Everything after that is machinery already built in Labs 02-05:
 >
 > ```
 > ECS starts a task -> ENI in a Lab 02 subnet
@@ -57,8 +61,6 @@ This lab replaces manual capacity management (`aws ecs update-service --desired-
 >                   -> load balancer health-checks it
 >                   -> it receives traffic
 > ```
-
-**Time spent:** *(fill in actual hours)*
 
 ---
 
@@ -84,8 +86,8 @@ This lab replaces manual capacity management (`aws ecs update-service --desired-
 
 ## 3. Prerequisites
 
-- [ ] Lab 04 complete — `usms-ecs-cluster`, `usms-enrolment` family, `usms-enrolment-svc`.
-- [ ] Lab 05 complete — `verify-lab-05.sh` reports `FAIL=0`.
+- [ ] Lab 04 complete - `usms-ecs-cluster`, `usms-enrolment` family, `usms-enrolment-svc`.
+- [ ] Lab 05 complete - `verify-lab-05.sh` reports `FAIL=0`.
 - [ ] `verify-lab-04.sh` reports `FAIL=0` or exactly the one documented `usms-app-sg` failure.
 - [ ] Service at baseline: `desiredCount` 2, one deployment.
 - [ ] Errata 01 applied (`echo "$AWS_PROFILE"` prints a value).
@@ -100,12 +102,7 @@ for t in jq python3 docker; do printf '%-10s ' "$t"; command -v "$t" || echo MIS
 aws --version
 ./scripts/utilities/floci-storage-check.sh
 ```
-
-> 📸 **Screenshot — Environment check output**
->
-> ```
-> [paste tool versions + PASS/FAIL output here]
-> ```
+![alt text](<../../screenshots/Screenshot from 2026-10-17 16-13-40.png>)
 
 ### Prior-lab measurements
 
@@ -113,13 +110,12 @@ aws --version
 cat outputs/lab-04-scale-latency.txt 2>/dev/null || echo "not measured - use the cited figure"
 cat outputs/lab-05-lab06-readiness.txt 2>/dev/null | grep -i elapsed || true
 ```
-
-> 📸 **Screenshot — prior measurements**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 16-14-58.png>)
 
 ---
 
 <a name="step-1"></a>
-## Step 1 — Resume the environment and load six env files
+## Step 1 - Resume the environment and load six env files
 
 **Purpose:** Bring Floci up and load configuration from all previous labs.
 
@@ -155,12 +151,12 @@ printf '%-28s %s\n' \
 
 **Verify:** Fourteen non-empty values, especially `baseline desired` = 2, `target group arn` non-empty, `grace period` = 60.
 
-> 📸 **Screenshot — Step 1 output (all fourteen values)**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 16-16-35.png>)
 
 ---
 
 <a name="step-2"></a>
-## Step 2 — Confirm Labs 02, 03, 04 and 05 are still intact
+## Step 2 - Confirm Labs 02, 03, 04 and 05 are still intact
 
 **Purpose:** Verify the foundation before attaching scaling to it.
 
@@ -174,7 +170,7 @@ echo "== the one failure that is allowed, and only this one =="
 ./scripts/utilities/verify-lab-04.sh | grep FAIL || echo "no failures in 04"
 ```
 
-> 📸 **Screenshot — verify-lab-02/03/04/05 results**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 17-52-49.png>)
 
 **Confirm service baseline:**
 
@@ -184,7 +180,7 @@ aws ecs describe-services --cluster "$USMS_ECS_CLUSTER" --services "$USMS_ENROLM
   --output json
 ```
 
-> 📸 **Screenshot — service baseline JSON (Desired=2, Deployments=1, LBs=1)**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 17-53-43.png>)
 
 > **Note:** If Desired is not 2, run:
 > ```bash
@@ -194,7 +190,7 @@ aws ecs describe-services --cluster "$USMS_ECS_CLUSTER" --services "$USMS_ENROLM
 ---
 
 <a name="step-3"></a>
-## Step 3 — Probe what this Floci build supports
+## Step 3 - Probe what this Floci build supports
 
 **Purpose:** Determine which Application Auto Scaling / CloudWatch operations are supported before building on top of them.
 
@@ -225,35 +221,46 @@ probe "ecs describe-services"                     "aws ecs describe-services --c
 probe "elbv2 describe-target-groups"              "aws elbv2 describe-target-groups --names $USMS_TG_NAME"
 ```
 
-> 📸 **Screenshot — probe results**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 17-54-28.png>)
 
-**Support path determined:** ☐ A (full) ☐ B (control plane only) ☐ C (no Application Auto Scaling)
+**Support path determined:** ☐ A (full) ☑ **B (control plane only)** ☐ C (no Application Auto Scaling)
 
-*(Record which path applies and why in the notes below.)*
+
 
 ```
 Notes on support path:
-_____________________________________________________________
-_____________________________________________________________
+Path B. Application Auto Scaling exists on this Floci build: describe-scalable-targets
+and describe-scaling-policies are SUPPORTED, and so are CloudWatch describe-alarms and
+list-metrics, ECS describe-services and ELBv2 describe-target-groups. So scalable targets,
+policies and alarms can be created and read back (the control plane).
+
+It is not Path A because describe-scheduled-actions and describe-scaling-activities both
+return "UnsupportedOperation". Without scaling activities there is no record of Application
+Auto Scaling ever changing desiredCount, so the decision side (alarm -> policy -> new task)
+cannot be observed end to end. Scheduled actions (Step 11) cannot be listed either.
+Not Path C, because the core Application Auto Scaling API answers.
+
+The "(skeleton)" probes always print SUPPORTED: --generate-cli-skeleton runs in the local
+AWS CLI and never reaches Floci, so they do not count as evidence either way.
 ```
 
 ### Checkpoint 1
 
-- [ ] Floci running under Compose, storage mode hybrid
-- [ ] course.env + lab-01..05 sourced
-- [ ] verify-lab-02/03/05 all FAIL=0; verify-lab-04 FAIL=0 or the ONE documented failure
-- [ ] outputs/lab-06-pre-verify-05.txt captured
-- [ ] service at baseline: desired 2, one deployment, one load balancer
-- [ ] support path recorded
+- [x] Floci running under Compose, storage mode hybrid
+- [x] course.env + lab-01..05 sourced
+- [x] verify-lab-02/03/05 all FAIL=0; verify-lab-04 FAIL=0 or the ONE documented failure
+- [x] outputs/lab-06-pre-verify-05.txt captured
+- [x] service at baseline: desired 2, one deployment, one load balancer
+- [x] support path recorded
 
 ---
 
 <a name="step-4"></a>
-## Step 4 — Create the service-linked role that writes desiredCount
+## Step 4 - Create the service-linked role that writes desiredCount
 
 **Purpose:** Application Auto Scaling calls `ecs:UpdateService` on your behalf via a service-linked role.
 
-**Part 1 — create it**
+**Part 1 - create it**
 
 ```bash
 ASA_SLR="AWSServiceRoleForApplicationAutoScaling_ECSService"
@@ -265,8 +272,9 @@ aws iam create-service-linked-role \
   --output text \
   || echo "not created - see the note below; this is often already present, and sometimes unsupported"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-01-50.png>)
 
-**Part 2 — read it back**
+**Part 2 - read it back**
 
 ```bash
 aws iam get-role --role-name "$ASA_SLR" \
@@ -278,18 +286,18 @@ aws iam list-attached-role-policies --role-name "$ASA_SLR" \
   --query 'AttachedPolicies[].PolicyName' --output text 2>/dev/null || true
 ```
 
-> 📸 **Screenshot — service-linked role creation and get-role output**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-02-15.png>)
 
 **What to look for:** Path is `/aws-service-role/ecs.application-autoscaling.amazonaws.com/`, distinct from any role created in Lab 01/04.
 
 ---
 
 <a name="step-5"></a>
-## Step 5 — Register the scalable target
+## Step 5 - Register the scalable target
 
 **Purpose:** Register the object every policy and scheduled action attaches to (floor 2, ceiling 10).
 
-**Part 1 — build the resource ID**
+**Part 1 - build the resource ID**
 
 ```bash
 SVC_ARN=$(aws ecs describe-services \
@@ -314,6 +322,7 @@ fi
 
 SDIM="ecs:service:DesiredCount"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-05-36.png>)
 
 **Cross-check against Lab 04 (if recorded):**
 
@@ -321,10 +330,10 @@ SDIM="ecs:service:DesiredCount"
 echo "derived here  : $RID"
 echo "from lab-04  : ${USMS_SCALABLE_RESOURCE_ID:-<not recorded>}"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-05-58.png>)
 
-> 📸 **Screenshot — resource ID derivation**
 
-**Part 2 — register it**
+**Part 2 - register it**
 
 ```bash
 aws application-autoscaling register-scalable-target \
@@ -344,7 +353,7 @@ aws application-autoscaling register-scalable-target \
        --max-capacity 10
 ```
 
-> 📸 **Screenshot — register-scalable-target output (ARN)**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-06-21.png>)
 
 **Verify:**
 
@@ -355,10 +364,10 @@ aws application-autoscaling describe-scalable-targets \
   --query 'ScalableTargets[0].{Namespace:ServiceNamespace,Resource:ResourceId,Dimension:ScalableDimension,Min:MinCapacity,Max:MaxCapacity,Role:RoleARN,Created:CreationTime,Suspended:SuspendedState}' \
   --output json
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-06-42.png>)
 
-> 📸 **Screenshot — describe-scalable-targets JSON (Min=2, Max=10, Role filled in)**
 
-**Part 3 — confirm the service wasn't disturbed:**
+**Part 3 - confirm the service wasn't disturbed:**
 
 ```bash
 aws ecs describe-services --cluster "$USMS_ECS_CLUSTER" --services "$USMS_ENROLMENT_SERVICE" \
@@ -366,16 +375,16 @@ aws ecs describe-services --cluster "$USMS_ECS_CLUSTER" --services "$USMS_ENROLM
   --output json
 ```
 
-> 📸 **Screenshot — service still at Desired=2**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-07-26.png>)
 
 ---
 
 <a name="step-6"></a>
-## Step 6 — Change the bounds, and learn what a re-registration is
+## Step 6 - Change the bounds, and learn what a re-registration is
 
 **Purpose:** There is no `update-scalable-target`; you re-register with new numbers.
 
-**Part 1 — raise the ceiling, then read it back**
+**Part 1 - raise the ceiling, then read it back**
 
 ```bash
 aws application-autoscaling register-scalable-target \
@@ -390,9 +399,9 @@ aws application-autoscaling describe-scalable-targets \
   --query 'ScalableTargets[0].[MinCapacity,MaxCapacity]' --output text
 ```
 
-> 📸 **Screenshot — bounds now 2 / 12 (min unchanged)**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-13-31.png>)
 
-**Part 2 — put it back**
+**Part 2 - put it back**
 
 ```bash
 aws application-autoscaling register-scalable-target \
@@ -408,8 +417,7 @@ aws application-autoscaling describe-scalable-targets \
   --query 'ScalableTargets[].{Resource:ResourceId,Min:MinCapacity,Max:MaxCapacity}' \
   --output table
 ```
-
-> 📸 **Screenshot — bounds table, exactly one row, Min=2 Max=10**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-13-52.png>)
 
 **Sanity check for duplicate targets:**
 
@@ -417,16 +425,13 @@ aws application-autoscaling describe-scalable-targets \
 aws application-autoscaling describe-scalable-targets --service-namespace ecs \
   --query 'length(ScalableTargets)' --output text
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-14-07.png>)
 
-> 📸 **Screenshot — result is `1`**
-
-### ✏️ Your turn
+### Your turn 
 
 Predict, then test: re-register with `--min-capacity 5` while running, observe, then restore to 2.
 
 ```bash
-# prediction (write BEFORE running):
-# _______________________________________________
 
 aws application-autoscaling register-scalable-target \
   --service-namespace ecs --resource-id "$RID" --scalable-dimension "$SDIM" \
@@ -440,36 +445,55 @@ aws application-autoscaling register-scalable-target \
   --service-namespace ecs --resource-id "$RID" --scalable-dimension "$SDIM" \
   --min-capacity 2 --max-capacity 10 >/dev/null
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-17-23.png>)
 
-> 📸 **Screenshot — desiredCount jump when min raised to 5**
 
-**Notes — answer in your own words:**
 
 ```
 (a) Which object made the change (scalable target / scaling policy / ECS)?
-    _____________________________________________________________
+    The SCALABLE TARGET. No policy and no alarm were involved. Re-registering it with
+    MinCapacity 5 while the service sat at desiredCount 2 puts the current value below
+    the new floor, so Application Auto Scaling itself (through its service-linked role)
+    calls ecs:UpdateService and raises desiredCount to 5. ECS then only does what it
+    always does: the service scheduler sees desired 5 vs running 2 and starts 3 tasks.
+    So the scalable target changed the number; ECS made reality match it.
+    Observed on Floci (Path B): MinCapacity read back as 5, but desiredCount stayed
+    2 2 0 (desired, running, pending) for 20 s, so the clamp is control plane only
+    here. Restored to min 2 / max 10 afterwards.
 
 (b) Colleague raises MinCapacity to 5 overnight without telling anyone —
     what is the cost, and which single API call reveals it?
-    _____________________________________________________________
+    Cost: 3 extra tasks that no policy can remove, because scale-in never goes below
+    the minimum. At 0.25 vCPU / 1 GB a task costs $0.0145656/hour (0.25 x $0.0404784
+    vCPU-h + 1 x $0.004446 GB-h, AWS Fargate us-east-1 pricing), so 3 tasks x 12 h
+    overnight = 36 task-hours = $0.52 per night, and if nobody notices,
+    3 x 730 h = $31.90 extra per month, making the total $53.17: 2.5x the $21.27
+    baseline of 2 tasks.
+    It also hides problems: with 5 tasks always running, the scaling policies look
+    idle, so nobody notices the floor was changed.
+    The single API call that reveals it:
+      aws application-autoscaling describe-scalable-targets --service-namespace ecs \
+        --resource-ids service/usms-ecs-cluster/usms-enrolment-svc
+    It shows MinCapacity 5. ECS describe-services only shows desiredCount 5, which looks
+    the same as a legitimate scale-out; it does not show WHO set the floor.
 ```
 
 ### Checkpoint 2
 
-- [ ] Scalable target `service/usms-ecs-cluster/usms-enrolment-svc`, dimension `ecs:service:DesiredCount`
-- [ ] min 2 / max 10 (raised to 12 and restored)
-- [ ] Role filled in automatically
-- [ ] Suspended state: all three false
-- [ ] No policies attached yet
+- [x] Scalable target `service/usms-ecs-cluster/usms-enrolment-svc`, dimension `ecs:service:DesiredCount`
+- [x] min 2 / max 10 (raised to 12 and restored)
+- [x] Role filled in automatically
+- [x] Suspended state: all three false
+- [x] No policies attached yet
 
 ---
 
 <a name="step-7"></a>
-## Step 7 — Create the CPU target tracking policy
+## Step 7 - Create the CPU target tracking policy
 
 **Purpose:** First scaling policy, using `ECSServiceAverageCPUUtilization`.
 
-**Part 1 — write the policy configuration**
+**Part 1 - write the policy configuration**
 
 ```bash
 cat > templates/lab-06-target-tracking-cpu.json << 'EOF'
@@ -488,9 +512,9 @@ python3 -m json.tool templates/lab-06-target-tracking-cpu.json > /dev/null && ec
 grep -c '\$' templates/lab-06-target-tracking-cpu.json
 ```
 
-> 📸 **Screenshot — valid JSON, grep count = 0**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-21-43.png>)
 
-**Part 2 — create the policy**
+**Part 2 - create the policy**
 
 ```bash
 CPU_POLICY="usms-enrolment-cpu-target-tracking"
@@ -507,8 +531,7 @@ CPU_POLICY_ARN=$(aws application-autoscaling put-scaling-policy \
 
 echo "CPU_POLICY_ARN = $CPU_POLICY_ARN"
 ```
-
-> 📸 **Screenshot — CPU_POLICY_ARN output**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-22-13.png>)
 
 **Verify:**
 
@@ -520,17 +543,16 @@ aws application-autoscaling describe-scaling-policies \
   --query 'ScalingPolicies[0].{Name:PolicyName,Type:PolicyType,Metric:TargetTrackingScalingPolicyConfiguration.PredefinedMetricSpecification.PredefinedMetricType,Target:TargetTrackingScalingPolicyConfiguration.TargetValue,Out:TargetTrackingScalingPolicyConfiguration.ScaleOutCooldown,In:TargetTrackingScalingPolicyConfiguration.ScaleInCooldown,NoScaleIn:TargetTrackingScalingPolicyConfiguration.DisableScaleIn,Alarms:Alarms[].AlarmName}' \
   --output json
 ```
-
-> 📸 **Screenshot — describe-scaling-policies JSON showing the two managed Alarms**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-22-34.png>)
 
 ---
 
 <a name="step-8"></a>
-## Step 8 — Read the two alarms that target tracking created for you
+## Step 8 - Read the two alarms that target tracking created for you
 
 **Purpose:** Locate and understand the AWS-managed alarms so you never delete them by accident.
 
-**Part 1 — find them**
+**Part 1 - find them**
 
 ```bash
 aws cloudwatch describe-alarms \
@@ -539,7 +561,7 @@ aws cloudwatch describe-alarms \
   --output json
 ```
 
-> 📸 **Screenshot — two managed alarms (AlarmHigh / AlarmLow)**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-26-02.png>)
 
 **Confirm alarm actions point to the policy:**
 
@@ -549,9 +571,9 @@ aws cloudwatch describe-alarms \
   --query 'MetricAlarms[].AlarmActions[]' --output text | tr '\t' '\n'
 ```
 
-> 📸 **Screenshot — both actions match $CPU_POLICY_ARN**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-26-38.png>)
 
-**Part 2 — prove the naming is derivable**
+**Part 2 - prove the naming is derivable**
 
 ```bash
 echo "resource id            : $RID"
@@ -560,31 +582,51 @@ aws cloudwatch describe-alarms --alarm-name-prefix "TargetTracking-${RID}" \
   --query 'length(MetricAlarms)' --output text
 ```
 
-> 📸 **Screenshot — count = 2**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-26-53.png>)
 
-### ✏️ Your turn
+### Your turn 
 
 Work out, from the alarm output above, how long the service would run at 100% CPU before a third task started serving traffic (four delay terms).
 
 ```
-Term 1 (alarm period × evaluations): _______
-Term 2 (policy invocation, ~0s):     _______
-Term 3 (Lab 04 Exercise 5 measurement): _______
-Term 4 (Lab 05 grace period):        _______
-TOTAL:                               _______
+Term 1 (alarm period × evaluations): 180 s  (AlarmHigh: Period 60 s × EvaluationPeriods 3,
+                                             CPU > 50 for three 1-minute datapoints)
+Term 2 (policy invocation, ~0s):     ~0 s   (alarm -> usms-enrolment-cpu-target-tracking ->
+                                             desiredCount 2 -> 3; the 60 s scale-out cooldown
+                                             only delays a SECOND step, not this first one)
+Term 3 (Lab 04 Exercise 5 measurement): ~10 s (new task PENDING -> RUNNING: running count
+                                             went 0 -> 1 between the 2nd and 3rd poll of the
+                                             5 s loop when usms-results-svc was created; real
+                                             Fargate is 20-60 s)
+Term 4 (Lab 05 grace period):        60 s   (healthCheckGracePeriodSeconds 60, the same as the
+                                             target group needing 2 healthy checks x 30 s
+                                             before the ALB sends the task any traffic)
+TOTAL:                               180 + 0 + 10 + 60 = 250 s ≈ 4 min 10 s on Floci
+                                     (180 + 0 + 60 + 60 = 300 s = 5 min on real Fargate)
 
 Which ONE term would you change first, and what would it cost?
-_____________________________________________________________
+Term 1: at 180 s it is 72 % of the total (180 / 250), and it is pure waiting. The service
+is already overloaded and nothing has even been decided yet. The managed target-tracking
+alarm cannot be edited (AWS overwrites it), so I would shorten it by adding the Step 10
+step-scaling policy with its own alarm at 1 evaluation of 60 s, which cuts Term 1 to 60 s
+and the total to 130 s. The cost is reacting to noise: a one-minute CPU spike now
+adds a task that may not be needed. Each false scale-out costs about $0.0146 per
+task-hour (0.25 vCPU x $0.0404784 + 1 GB x $0.004446) for as long as the 300 s
+scale-in cooldown and the 15-minute AlarmLow keep it: about 20 min x $0.0146/h
+≈ $0.005 per event.
+That is cheap in money, but it adds churn: more task starts, more draining, and
+more events to read. Terms 3 and 4 are mostly fixed by Fargate and the health
+check, so they cannot be shortened safely.
 ```
 
 ---
 
 <a name="step-9"></a>
-## Step 9 — Create the request-count policy
+## Step 9 - Create the request-count policy
 
 **Purpose:** Build the `ALBRequestCountPerTarget` policy that Lab 05 unlocked.
 
-**Part 1 — get / derive the ResourceLabel**
+**Part 1 - get / derive the ResourceLabel**
 
 ```bash
 if [ -n "${USMS_ALB_RESOURCE_LABEL:-}" ]; then
@@ -611,9 +653,9 @@ printf '%s' "$RESOURCE_LABEL" | awk -F/ '{
 }'
 ```
 
-> 📸 **Screenshot — RESOURCE_LABEL derivation and validation (OK)**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-30-32.png>)
 
-**Part 2 — the policy configuration**
+**Part 2 - the policy configuration**
 
 ```bash
 cat > templates/lab-06-target-tracking-requests.json << EOF
@@ -634,9 +676,9 @@ grep -c '\$' templates/lab-06-target-tracking-requests.json
 grep ResourceLabel templates/lab-06-target-tracking-requests.json
 ```
 
-> 📸 **Screenshot — valid JSON, grep count = 0, ResourceLabel line printed**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-31-00.png>)
 
-**Part 3 — create it**
+**Part 3 - create it**
 
 ```bash
 REQ_POLICY="usms-enrolment-requests-target-tracking"
@@ -654,7 +696,7 @@ REQ_POLICY_ARN=$(aws application-autoscaling put-scaling-policy \
   || echo "ALBRequestCountPerTarget not supported on this build - record it and continue; Step 10 does not depend on it"
 ```
 
-> 📸 **Screenshot — REQ_POLICY_ARN output (or documented limitation)**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-31-25.png>)
 
 **Verify:**
 
@@ -665,22 +707,22 @@ aws application-autoscaling describe-scaling-policies \
   --output table
 ```
 
-> 📸 **Screenshot — table with both target tracking policies**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-31-38.png>)
 
 ### Checkpoint 3
 
-- [ ] Two target tracking policies (CPU @ 50.0, requests @ 1000.0)
-- [ ] Each reports 2 managed alarms (4 total)
-- [ ] ResourceLabel validated at 6 segments
+- [x] Two target tracking policies (CPU @ 50.0, requests @ 1000.0)
+- [x] Each reports 2 managed alarms (4 total)
+- [x] ResourceLabel validated at 6 segments
 
 ---
 
 <a name="step-10"></a>
-## Step 10 — Create a step scaling policy, and the alarm that drives it
+## Step 10 - Create a step scaling policy, and the alarm that drives it
 
 **Purpose:** Build the piecewise response target tracking cannot express, using a custom queue-depth metric.
 
-**Part 1 — publish the metric**
+**Part 1 - publish the metric**
 
 ```bash
 METRIC_NS="USMS/Enrolment"
@@ -701,9 +743,9 @@ aws cloudwatch list-metrics --namespace "$METRIC_NS" \
   --output json
 ```
 
-> 📸 **Screenshot — custom metric published and listed**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-33-33.png>)
 
-**Part 2 — the step configuration**
+**Part 2 - the step configuration**
 
 ```bash
 cat > templates/lab-06-step-scaling-out.json << 'EOF'
@@ -729,9 +771,9 @@ python3 -m json.tool templates/lab-06-step-scaling-out.json > /dev/null && echo 
 grep -c '\$' templates/lab-06-step-scaling-out.json
 ```
 
-> 📸 **Screenshot — valid JSON, grep count = 0**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-34-53.png>)
 
-**Part 3 — create the policy, then the alarm**
+**Part 3 - create the policy, then the alarm**
 
 ```bash
 STEP_POLICY="usms-enrolment-queue-step-out"
@@ -770,7 +812,7 @@ aws cloudwatch describe-alarms --alarm-names "$QUEUE_ALARM" \
   --output json
 ```
 
-> 📸 **Screenshot — STEP_POLICY_ARN + alarm details JSON**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-35-41.png>)
 
 **Verify:**
 
@@ -781,16 +823,16 @@ aws application-autoscaling describe-scaling-policies \
   --output json
 ```
 
-> 📸 **Screenshot — step policy JSON, Alarms shows usms-enrolment-queue-high**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-36-00.png>)
 
 ---
 
 <a name="step-11"></a>
-## Step 11 — Create two scheduled actions
+## Step 11 - Create two scheduled actions
 
 **Purpose:** Add anticipatory capacity for enrolment mornings (Asia/Thimphu time zone).
 
-**Part 1 — morning scale-out**
+**Part 1 - morning scale-out**
 
 ```bash
 SCHED_OUT="usms-enrolment-morning-scale-out"
@@ -820,9 +862,19 @@ aws application-autoscaling put-scheduled-action \
   && echo "created $SCHED_OUT in UTC - record that you did the conversion by hand"
 ```
 
-> 📸 **Screenshot — morning scheduled action created**
+> **Floci result (Path B):** both the Asia/Thimphu call and this UTC fallback fail with
+> `An error occurred (UnsupportedOperation) when calling the PutScheduledAction operation:
+> Operation PutScheduledAction is not supported.` The whole scheduled-action API is missing
+> from this build. Step 3's probe already showed `describe-scheduled-actions` as unsupported, so
+> this is not the `--timezone` problem the fallback was written for. The commands in this step are
+> recorded as the **intended configuration** for real AWS:
+> - morning scale-out `cron(45 7 ? * MON-FRI *)` Asia/Thimphu = `cron(45 1 ? * MON-FRI *)` UTC, min 4 / max 10
+> - evening scale-in `cron(0 20 ? * MON-FRI *)` Asia/Thimphu = `cron(0 14 ? * MON-FRI *)` UTC, min 2 / max 10
+>
+> Thimphu is UTC+6 with no daylight saving, so subtracting 6 hours is always right. The
+> scalable target was not changed by these failed calls (still min 2 / max 10).
 
-**Part 2 — evening scale-in**
+**Part 2 - evening scale-in**
 
 ```bash
 SCHED_IN="usms-enrolment-evening-scale-in"
@@ -844,7 +896,7 @@ aws application-autoscaling put-scheduled-action \
        --scalable-target-action MinCapacity=2,MaxCapacity=10
 ```
 
-> 📸 **Screenshot — evening scheduled action created**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-37-53.png>)
 
 **Verify:**
 
@@ -856,13 +908,12 @@ aws application-autoscaling describe-scheduled-actions \
   --output table
 ```
 
-> 📸 **Screenshot — table with both scheduled actions**
-
-### ✏️ Your turn — one-off scheduled action
+### Your turn - one-off scheduled action 
 
 ```bash
 python3 -c "import datetime;print((datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=10)).strftime('%Y-%m-%dT%H:%M:%S'))"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-48-50.png>)
 
 ```bash
 aws application-autoscaling put-scheduled-action \
@@ -875,7 +926,7 @@ aws application-autoscaling put-scheduled-action \
   --scalable-target-action MinCapacity=6,MaxCapacity=10
 ```
 
-> 📸 **Screenshot — three scheduled actions listed**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-49-18.png>)
 
 **Clean up the one-off action (read the danger note in the lab doc first):**
 
@@ -896,21 +947,53 @@ aws application-autoscaling describe-scalable-targets --service-namespace ecs --
   --query 'ScalableTargets[0].[MinCapacity,MaxCapacity]' --output text
 ```
 
-> 📸 **Screenshot — back to 2 scheduled actions, bounds 2/10**
+![alt text](<../../screenshots/Screenshot from 2026-10-17 18-49-39.png>)
 
 **Notes:**
 
 ```
 An at() action does not remove itself after firing. What is left behind, why does
 it matter six months later, and which command belongs in the same runbook page?
-_____________________________________________________________
+
+What is left behind: two things. First, the scheduled action itself
+(usms-enrolment-results-night) stays registered against the scalable target with
+an at() time in the past. It will never fire again, but describe-scheduled-actions
+keeps listing it. Second, and more important, its EFFECT stays: when it fired it
+set MinCapacity=6 on the scalable target, and nothing ever sets it back. An at()
+action has no "undo" or end time, so the service keeps a floor of 6 tasks after
+results night until someone re-registers the target with min 2.
+
+Why it matters six months later: nobody remembers results night, but the bill
+does. 4 extra tasks that scale-in can never remove x 730 h x $0.0145656 per
+task-hour = about $42.53 per month, roughly $255 over six months. The scaling
+policies still look normal, so the cause is hidden. The stale action also clutters
+the list. Someone reading describe-scheduled-actions cannot tell whether an old
+at() entry is harmless history or something still waiting to fire, and a reused
+name (re-running put-scheduled-action next year) silently overwrites it instead
+of failing.
+
+Commands for the same runbook page: every at() scale-out needs its matching undo.
+1. A second at() action (or a cron one) that sets MinCapacity back to 2, created at
+   the same time as the scale-out, so the floor is restored automatically.
+2. The cleanup, right after the event:
+     aws application-autoscaling delete-scheduled-action \
+       --service-namespace ecs --resource-id "$RID" --scalable-dimension "$SDIM" \
+       --scheduled-action-name usms-enrolment-results-night
+   followed by a check that the floor is back:
+     aws application-autoscaling describe-scalable-targets --service-namespace ecs \
+       --resource-ids "$RID" --query 'ScalableTargets[0].[MinCapacity,MaxCapacity]'
+Deleting the action only removes the entry. It does NOT restore MinCapacity, so the
+re-register to min 2 (or the second at() action) is the step that actually saves money.
+
+(Floci, Path B: put-scheduled-action is unsupported on this build, so this was
+reasoned through rather than observed.)
 ```
 
 ### Checkpoint 4
 
-- [ ] Scale-out step policy with 2 adjustments, open-ended top interval
-- [ ] Queue-high alarm invokes the step policy
-- [ ] Two scheduled actions with correct min values and Asia/Thimphu time zone
+- [x] Scale-out step policy with 2 adjustments, open-ended top interval
+- [x] Queue-high alarm invokes the step policy
+- [x] Two scheduled actions with correct min values and Asia/Thimphu time zone
 
 ---
 
@@ -1352,13 +1435,25 @@ aws ecs describe-services --cluster "$USMS_ECS_CLUSTER" --services "$USMS_ENROLM
 
 ```
 1. A student clicks Register.
-2. _____________________________________________________________
-3. _____________________________________________________________
-4. _____________________________________________________________
-5. _____________________________________________________________
-6. _____________________________________________________________
-7. _____________________________________________________________
-8. _____________________________________________________________
+2. The request reaches usms-enrolment-alb, which forwards it to one of the healthy
+   tasks in usms-enrolment-tg. Thousands of students doing the same thing push the
+   tasks' CPU (and the request count per target) up.                      [Lab 05]
+3. CloudWatch sees ECSServiceAverageCPUUtilization above 50 % for 3 one-minute
+   periods, and the managed TargetTracking-...-AlarmHigh alarm goes to ALARM.  [Lab 06]
+4. The alarm's action invokes the scaling policy usms-enrolment-cpu-target-tracking,
+   which works out how many tasks would bring CPU back to 50 %.            [Lab 06]
+5. Application Auto Scaling writes that number to the scalable target
+   service/usms-ecs-cluster/usms-enrolment-svc (ecs:service:DesiredCount), kept
+   within min 2 / max 10, by calling ecs:UpdateService through its service-linked
+   role. desiredCount goes from 2 to 3.                                     [Lab 06]
+6. The ECS service sees desired 3 vs running 2 and launches one more task from
+   the same task definition, usms-enrolment:2.                             [Lab 04]
+7. The new task gets its own network interface in one of the private subnets,
+   carries usms-enrolment-sg, gets no public IP, and pulls its image through the
+   NAT gateway.                                                             [Labs 02/04]
+8. The ECS service registers the task's IP in usms-enrolment-tg. After passing
+   2 health checks (and the 60 s grace period) it is healthy, and the ALB starts
+   sending it a share of the students' requests.                           [Lab 05]
 9. Nothing about the blueprint, the service or the load balancer changed.
 ```
 
@@ -1378,7 +1473,7 @@ cat > configs/lab-06.env << EOF
 export USMS_SCALABLE_NAMESPACE=ecs
 export USMS_SCALABLE_RESOURCE_ID=$(aws ecs describe-services \
   --cluster usms-ecs-cluster --services usms-enrolment-svc \
-  --query 'services[0].serviceArn' --output text | awk -F: '{print \$NF}')
+  --query 'services[0].serviceArn' --output text | awk -F: '{print $NF}')
 export USMS_SCALABLE_DIMENSION=ecs:service:DesiredCount
 export USMS_SCALE_MIN=$(aws application-autoscaling describe-scalable-targets \
   --service-namespace ecs \
@@ -1726,13 +1821,33 @@ bash -n scripts/utilities/verify-lab-06.sh && echo "syntax OK"
 
 > 📸 **Screenshot — full verify-lab-06.sh run, ending in `PASS=42  FAIL=0`**
 
-**Result:** `PASS=____  FAIL=____`
+**Result:** `PASS=37  FAIL=5`
 
 **Benign failures observed (if any) and their explanation:**
 
 ```
-_____________________________________________________________
-_____________________________________________________________
+Benign: Floci limitation, Path B (3 failures)
+  FAIL morning action usms-enrolment-morning-scale-out exists
+  FAIL evening action usms-enrolment-evening-scale-in exists
+  FAIL the morning action raises the floor ABOVE the evening action's
+All three come from the same cause: this Floci build does not implement the
+scheduled-action API. put-scheduled-action returns "UnsupportedOperation: Operation
+PutScheduledAction is not supported" for both the Asia/Thimphu and the UTC fallback
+calls (Step 11), and Step 3's probe had already shown describe-scheduled-actions as
+unsupported. The commands are correct and are recorded in Step 11 as the intended
+configuration for real AWS. On real AWS these three checks would pass.
+
+NOT benign: steps not yet run (2 failures)
+  FAIL configs/lab-06.env exists                -> written in Step 16
+  FAIL suspended-state document is valid JSON   -> templates/lab-06-suspended-state.json,
+       and does NOT suspend scale-out              written in Step 13
+These are missing files, not Floci limitations. Re-run verify-lab-06.sh after
+Steps 13 and 16; the expected result on this build is then PASS=39 FAIL=3, with only
+the three scheduled-action failures remaining.
+
+Everything else passed: environment, Lab 02-05 dependencies, the scalable target
+(min 2 / max 10), the scaling policies, the alarms, the service state and the custom
+metric.
 ```
 
 ---
@@ -1871,55 +1986,48 @@ bash -n scripts/cleanup/lab-06-cleanup.sh && echo "syntax OK - do NOT run it"
 *(Note which parts of the lab worked end-to-end (Path A), which were control-plane only (Path B), and which Floci limitations you personally hit — e.g. managed alarms not created, `describe-scaling-activities` empty, `set-alarm-state` unsupported, `--timezone` rejected, etc.)*
 
 ```
-_____________________________________________________________
-_____________________________________________________________
-_____________________________________________________________
-```
+Overall: Path B (control plane only). Every scaling object could be created and read
+back, but nothing ever acted on it: Floci stores the configuration and never runs it.
 
----
+WORKED (control plane - created and read back correctly)
+- Service-linked role, and the scalable target service/usms-ecs-cluster/usms-enrolment-svc
+  (ecs:service:DesiredCount), re-registered with new bounds (Step 6) and restored to 2/10.
+- Three scaling policies: usms-enrolment-cpu-target-tracking and
+  usms-enrolment-requests-target-tracking (TargetTrackingScaling), usms-enrolment-queue-step-out
+  (StepScaling).
+- Managed alarms WERE created: each target-tracking policy produced its own
+  TargetTracking-...-AlarmHigh / -AlarmLow pair (4 alarms, CPU and ALBRequestCountPerTarget),
+  e.g. AlarmHigh = 3 x 60 s > 50 %, AlarmLow = 15 x 60 s < 50 % (scale-in kept slow on purpose).
+- The custom alarm usms-enrolment-queue-high, and put-metric-data into USMS/Enrolment
+  EnrolmentQueueDepth (the metric is listed by list-metrics).
+- set-alarm-state IS supported (an unknown alarm name gives ResourceNotFound, not
+  UnsupportedOperation), and the suspend/resume flags (SuspendedState) are stored.
 
-## Review Questions
+DID NOT WORK END TO END (would on real AWS)
+- No alarm is ever evaluated: all 5 alarms stayed INSUFFICIENT_DATA even after metric data
+  was published, so nothing can go into ALARM by itself.
+- Forcing it does not help either: set-alarm-state put usms-enrolment-queue-high into ALARM
+  for 30 s, and desiredCount stayed 2 2 (desired, running) the whole time. The alarm ->
+  policy -> UpdateService link does not exist. describe-scaling-policies also shows no Alarms
+  attached to the step policy.
+- Raising MinCapacity to 5 (Step 6 "Your turn") was stored, but desiredCount was NOT raised
+  to the new floor: it stayed at 2 for 20 s.
 
-**1.** Write out the nine-line chain from Step 15, name which three are this lab's, and explain why the other six needed no modification. Finish with one sentence answering "what does auto scaling change about my application?"
+FLOCI LIMITATIONS I HIT
+- describe-scaling-activities: UnsupportedOperation, so there is no record of any scaling
+  decision.
+- put-scheduled-action / describe-scheduled-actions: UnsupportedOperation, both with
+  --timezone "Asia/Thimphu" and with the UTC fallback, so Step 11 could not be done.
+  This causes 3 of the 5 FAILs in verify-lab-06.sh.
+- healthCheckGracePeriodSeconds is not stored on the service (carried over from Lab 05).
+- The "(skeleton)" probes in Step 3 prove nothing: --generate-cli-skeleton runs in the
+  local CLI and never reaches Floci.
 
-```
-_____________________________________________________________
-```
-
-**2.** Explain what a scalable target's resource ID actually is, why it's a constructed string rather than an ARN, and how its shape differs across `ecs`, `dynamodb`, and `lambda`. Name the other three constructed identifiers in this architecture.
-
-```
-_____________________________________________________________
-```
-
-**3.** Explain what happens when registering a target with min=2 against a service running one task. Which object made the change, and how does that differ from a scaling policy doing it? Describe a 3am incident where this matters.
-
-```
-_____________________________________________________________
-```
-
-**4.** Compare the two managed alarms vs. the one you wrote yourself — ownership, what happens on policy change/deletion, and what one type can do that the other can't. Argue for `breaching` over `notBreaching` for the queue alarm.
-
-```
-_____________________________________________________________
-```
-
-**5.** Reconstruct the §4.3 arithmetic for why reactive scaling cannot absorb the first minutes of a spike. Name every delay term and where it's configured, then connect the three consequences to this lab's five configuration decisions.
-
-```
-_____________________________________________________________
-```
-
-**6.** Explain what happens when the CPU and request-count target tracking policies disagree, in both directions, and why the rule is asymmetric. Explain why two target tracking policies on the same metric — or a step + target tracking pair on one metric — is a fault.
-
-```
-_____________________________________________________________
-```
-
-**7.** State the three reasons `ALBRequestCountPerTarget` beats CPU as a scaling signal. Name the one workload type where CPU is better. Describe what would have to be true about the enrolment app for request count to scale it badly, and which metric would reveal that in advance.
-
-```
-_____________________________________________________________
+CONCEPTUAL ONLY (reasoned about, not observed)
+- A task being added because CPU or request count crossed a target.
+- The four-term delay from overload to a new task serving traffic (Step 8: ~250 s).
+- Scheduled scale-out at 07:45 / scale-in at 20:00 Asia/Thimphu.
+- Fargate cost of extra tasks (all figures use $0.0404784 per vCPU-hour + $0.004446 per GB-hour).
 ```
 
 ---

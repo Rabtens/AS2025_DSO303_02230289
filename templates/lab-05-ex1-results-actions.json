@@ -1,0 +1,6 @@
+[
+  {
+    "Type": "forward",
+    "TargetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:000000000000:targetgroup/usms-results-tg/39fd8f757d554503"
+  }
+]
