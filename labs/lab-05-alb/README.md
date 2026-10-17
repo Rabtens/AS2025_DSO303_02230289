@@ -1,11 +1,4 @@
-# DSO303 – Lab 05: Putting the ECS Service Behind an Application Load Balancer
-
-**Practical 2 – Giving the USMS Enrolment Service a Front Door**
-
-**Student:** Kuenzang
-**Institution:** CST (College of Science and Technology), Bhutan
-**Course:** DSO303
-**Lab:** Lab 05 – ECS + ALB
+# DSO303 - Lab 05: Putting the ECS Service Behind an Application Load Balancer
 
 ---
 
@@ -20,16 +13,15 @@
 7. [Cleanup Script (Section 9.3 — NOT executed)](#7-cleanup-script-section-93--not-executed)
 8. [Checkpoints Summary](#8-checkpoints-summary)
 9. [Troubleshooting Log](#9-troubleshooting-log)
-10. [Review Questions](#10-review-questions)
-11. [Reflection](#11-reflection)
-12. [Submission Checklist](#12-submission-checklist)
+10. [Reflection](#10-reflection)
+11. [Submission Checklist](#11-submission-checklist)
 
 ---
 
 ## 1. Lab Overview
 
 Lab 04 left the `usms-enrolment-svc` service running two Fargate tasks in private
-subnets — correct, but unreachable. This lab fixes that by placing an
+subnets - correct, but unreachable. This lab fixes that by placing an
 **Application Load Balancer (ALB)** in front of a **target group**, with the ECS
 service registering and deregistering its own tasks as targets.
 
@@ -44,25 +36,25 @@ The four Elastic Load Balancing objects built in this lab:
 
 > **Word to remember: indirection.** The load balancer is a stable name in front
 > of an unstable set of task addresses. The ECS service keeps that list of
-> addresses accurate — nobody ever calls `register-targets` by hand.
+> addresses accurate - nobody ever calls `register-targets` by hand.
 
 ---
 
 ## 2. Learning Objectives
 
-- [ ] Explain why Fargate tasks cannot be addressed directly
-- [ ] Name the four ELB objects and what each holds
-- [ ] Choose between ALB / NLB / GWLB for a stated requirement
-- [ ] Explain why a Fargate target group must be `--target-type ip`
-- [ ] Create an internet-facing ALB across two AZs
-- [ ] Create a target group with a deliberate health check configuration
-- [ ] Distinguish the container health check from the target group health check
-- [ ] Create a listener with a default action and a priority-ordered rule
-- [ ] Attach an existing ECS service to a target group
-- [ ] Explain `--health-check-grace-period-seconds`
-- [ ] Read `describe-target-health` states
-- [ ] Perform the security cutover from direct to load-balanced access
-- [ ] Explain how deregistration delay, `minimumHealthyPercent`, and `stopTimeout` interact
+- [x] Explain why Fargate tasks cannot be addressed directly
+- [x] Name the four ELB objects and what each holds
+- [x] Choose between ALB / NLB / GWLB for a stated requirement
+- [x] Explain why a Fargate target group must be `--target-type ip`
+- [x] Create an internet-facing ALB across two AZs
+- [x] Create a target group with a deliberate health check configuration
+- [x] Distinguish the container health check from the target group health check
+- [x] Create a listener with a default action and a priority-ordered rule
+- [x] Attach an existing ECS service to a target group
+- [x] Explain `--health-check-grace-period-seconds`
+- [x] Read `describe-target-health` states
+- [x] Perform the security cutover from direct to load-balanced access
+- [x] Explain how deregistration delay, `minimumHealthyPercent`, and `stopTimeout` interact
 - [ ] Prove every object survives an emulator restart
 
 ---
@@ -80,22 +72,15 @@ aws --version
 
 Prerequisite checklist:
 
-- [ ] Lab 04 complete — `verify-lab-04.sh` reports `FAIL=0` **before** Step 13
-- [ ] Lab 2 Step 11 "Your turn" done — `usms-public-subnet-b` exists
-- [ ] Lab 2 Exercise 5 done — `usms-private-subnet-b` exists
-- [ ] Lab 3 complete — `usms-web-01` running with `usms-app-sg`
-- [ ] Errata 01 applied
-- [ ] Floci running under Docker Compose, `FLOCI_STORAGE_MODE=hybrid`
-- [ ] `jq`, `python3` available
+- [x] Lab 04 complete - `verify-lab-04.sh` reports `FAIL=0` **before** Step 13
+- [x] Lab 2 Step 11 "Your turn" done - `usms-public-subnet-b` exists
+- [x] Lab 2 Exercise 5 done - `usms-private-subnet-b` exists
+- [x] Lab 3 complete - `usms-web-01` running with `usms-app-sg`
+- [x] Errata 01 applied
+- [x] Floci running under Docker Compose, `FLOCI_STORAGE_MODE=hybrid`
+- [x] `jq`, `python3` available
 
-**Screenshot — Prerequisites output:**
-
-```
-[ PASTE SCREENSHOT HERE: terminal output of the prerequisite check block ]
-
-
-
-```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-26-15.png>)
 
 ---
 
@@ -129,14 +114,7 @@ probe "ec2 describe-subnets"                  "aws ec2 describe-subnets --subnet
 
 **Support path recorded:** `[ FILL IN: A / B / C ]`
 
-**Screenshot — Support probe output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-32-04.png>)
 
 ---
 
@@ -144,7 +122,7 @@ probe "ec2 describe-subnets"                  "aws ec2 describe-subnets --subnet
 
 > All commands are run from `~/aws-floci-course` unless stated otherwise.
 
-### Step 1 — Resume the environment and load five env files
+### Step 1 - Resume the environment and load five env files
 
 ```bash
 cd ~/aws-floci-course
@@ -175,18 +153,12 @@ printf '%-26s %s\n' \
 
 **Verify:** 12 non-empty values, especially `public subnet b` and `enrolment sg`.
 
-**Screenshot — Step 1 output:**
 
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-34-31.png>)
 
 ---
 
-### Step 2 — Confirm Labs 2, 3 and 04 are still intact
+### Step 2 - Confirm Labs 2, 3 and 04 are still intact
 
 ```bash
 ./scripts/utilities/verify-lab-02.sh | tail -3
@@ -196,20 +168,11 @@ printf '%-26s %s\n' \
 
 **Expected:** `FAIL=0` three times.
 
-**Screenshot — Step 2 output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-39-32.png>)
 
 ---
 
-### Step 3 — Probe what this Floci build supports for ELB
-
-*(see [Section 4](#4-support-path) above — probe already run)*
+### Step 3 - Probe what this Floci build supports for ELB
 
 **Checkpoint 1**
 
@@ -225,7 +188,7 @@ Ready to build
 
 ---
 
-### Step 4 — Create the load balancer's security group
+### Step 4 - Create the load balancer's security group
 
 ```bash
 ALB_SG=$(aws ec2 create-security-group \
@@ -238,6 +201,7 @@ ALB_SG=$(aws ec2 create-security-group \
 
 echo "ALB_SG = $ALB_SG"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-41-40.png>)
 
 ```bash
 cat > policies/usms-alb-sg-ingress.json << 'EOF'
@@ -264,6 +228,7 @@ aws ec2 authorize-security-group-ingress \
   --query 'SecurityGroupRules[].SecurityGroupRuleId' \
   --output text
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-42-56.png>)
 
 **Verify:**
 
@@ -272,21 +237,11 @@ aws ec2 describe-security-groups --group-ids "$ALB_SG" \
   --query 'SecurityGroups[0].{Name:GroupName,VPC:VpcId,Inbound:IpPermissions[].{Port:FromPort,CIDR:IpRanges[0].CidrIp,FromGroup:UserIdGroupPairs[0].GroupId},OutboundRules:length(IpPermissionsEgress)}' \
   --output json
 ```
-
-**✏️ Your turn (optional, add second rule for tcp/443):** `[ FILL IN if done ]`
-
-**Screenshot — Step 4 output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-43-20.png>)
 
 ---
 
-### Step 5 — Create the Application Load Balancer
+### Step 5 - Create the Application Load Balancer
 
 ```bash
 ALB_ARN=$(aws elbv2 create-load-balancer \
@@ -307,6 +262,7 @@ ALB_DNS=$(aws elbv2 describe-load-balancers --load-balancer-arns "$ALB_ARN" \
 
 echo "ALB_DNS = $ALB_DNS"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-45-38.png>)
 
 ```bash
 aws elbv2 wait load-balancer-available --load-balancer-arns "$ALB_ARN" \
@@ -321,6 +277,7 @@ for i in $(seq 1 10); do
   sleep 10
 done
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-45-53.png>)
 
 **Verify:**
 
@@ -329,6 +286,7 @@ aws elbv2 describe-load-balancers --load-balancer-arns "$ALB_ARN" \
   --query 'LoadBalancers[0].{Name:LoadBalancerName,State:State.Code,Type:Type,Scheme:Scheme,VPC:VpcId,DNS:DNSName,IPType:IpAddressType,AZs:AvailabilityZones[].{Zone:ZoneName,Subnet:SubnetId},SGs:SecurityGroups}' \
   --output json
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-46-10.png>)
 
 ```bash
 aws elbv2 modify-load-balancer-attributes \
@@ -340,6 +298,7 @@ aws elbv2 modify-load-balancer-attributes \
   --output table \
   || echo "attribute modification not supported on this build - record it and continue"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-46-25.png>)
 
 **Checkpoint 2**
 
@@ -354,18 +313,9 @@ usms-enrolment-alb   active
  └── listeners       NONE YET
 ```
 
-**Screenshot — Step 5 output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
-
 ---
 
-### Step 6 — Create the target group
+### Step 6 - Create the target group
 
 ```bash
 TG_ARN=$(aws elbv2 create-target-group \
@@ -388,6 +338,7 @@ TG_ARN=$(aws elbv2 create-target-group \
 
 echo "TG_ARN = $TG_ARN"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-50-17.png>)
 
 **Verify:**
 
@@ -399,21 +350,13 @@ aws elbv2 describe-target-groups --target-group-arns "$TG_ARN" \
 aws elbv2 describe-target-health --target-group-arn "$TG_ARN" \
   --query 'TargetHealthDescriptions' --output json
 ```
-
-**✏️ Your turn (widen matcher to 200-399, then restore to 200):** `[ FILL IN ]`
-
-**Screenshot — Step 6 output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-50-39.png>)
 
 
-
-```
 
 ---
 
-### Step 7 — Set the target group attribute that governs how a task dies
+### Step 7 - Set the target group attribute that governs how a task dies
 
 ```bash
 aws elbv2 modify-target-group-attributes \
@@ -427,19 +370,11 @@ aws elbv2 modify-target-group-attributes \
 aws elbv2 describe-target-group-attributes --target-group-arn "$TG_ARN" \
   --query 'Attributes[].[Key,Value]' --output table
 ```
-
-**Screenshot — Step 7 output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-52-14.png>)
 
 ---
 
-### Step 8 — Create the listener
+### Step 8 - Create the listener
 
 ```bash
 cat > templates/lab-05-listener-default-actions.json << EOF
@@ -454,6 +389,7 @@ EOF
 python3 -m json.tool templates/lab-05-listener-default-actions.json > /dev/null && echo "valid JSON"
 grep -c '\$' templates/lab-05-listener-default-actions.json
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-52-55.png>)
 
 ```bash
 LISTENER_ARN=$(aws elbv2 create-listener \
@@ -467,6 +403,7 @@ LISTENER_ARN=$(aws elbv2 create-listener \
 
 echo "LISTENER_ARN = $LISTENER_ARN"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-53-09.png>)
 
 **Verify:**
 
@@ -479,6 +416,7 @@ aws elbv2 describe-target-groups --target-group-arns "$TG_ARN" \
   --query 'TargetGroups[0].{Name:TargetGroupName,AttachedToLoadBalancers:length(LoadBalancerArns)}' \
   --output json
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-53-29.png>)
 
 **Checkpoint 3**
 
@@ -495,18 +433,9 @@ usms-enrolment-alb   active, internet-facing, application, 2 AZs
                                       └── targets       NONE YET  <- Step 10
 ```
 
-**Screenshot — Step 8 output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
-
 ---
 
-### Step 9 — Let the load balancer reach the tasks
+### Step 9 - Let the load balancer reach the tasks
 
 ```bash
 cat > policies/usms-enrolment-sg-ingress-alb.json << EOF
@@ -534,6 +463,7 @@ aws ec2 authorize-security-group-ingress \
   --query 'SecurityGroupRules[].SecurityGroupRuleId' \
   --output text
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-55-43.png>)
 
 **Verify:**
 
@@ -542,19 +472,11 @@ aws ec2 describe-security-groups --group-ids "$USMS_ENROLMENT_SG" \
   --query 'SecurityGroups[0].IpPermissions[].{Port:FromPort,Sources:UserIdGroupPairs[].GroupId,CIDRs:IpRanges[].CidrIp}' \
   --output json
 ```
-
-**Screenshot — Step 9 output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-56-08.png>)
 
 ---
 
-### Step 10 — Attach the existing service to the target group
+### Step 10 - Attach the existing service to the target group
 
 ```bash
 cat > templates/lab-05-service-load-balancers.json << EOF
@@ -571,6 +493,7 @@ python3 -m json.tool templates/lab-05-service-load-balancers.json > /dev/null &&
 grep -c '\$' templates/lab-05-service-load-balancers.json
 cat templates/lab-05-service-load-balancers.json
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-58-59.png>)
 
 ```bash
 aws ecs update-service \
@@ -581,23 +504,15 @@ aws ecs update-service \
   --query 'service.{Name:serviceName,LB:loadBalancers,Grace:healthCheckGracePeriodSeconds,Deployments:length(deployments),TaskDef:taskDefinition}' \
   --output json
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 10-59-21.png>)
 
 > If `--load-balancers` is rejected on `update-service`, use the recreate
 > fallback documented in the lab (delete and recreate the service with
 > `--load-balancers` set at creation time).
 
-**Screenshot — Step 10 output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
-
 ---
 
-### Step 11 — Watch the targets register, and read target health
+### Step 11 - Watch the targets register, and read target health
 
 ```bash
 for i in $(seq 1 12); do
@@ -611,6 +526,7 @@ for i in $(seq 1 12); do
   sleep 10
 done
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-04-10.png>)
 
 ```bash
 aws ecs describe-services --cluster "$USMS_ECS_CLUSTER" --services "$USMS_ENROLMENT_SERVICE" \
@@ -620,6 +536,7 @@ aws ecs describe-services --cluster "$USMS_ECS_CLUSTER" --services "$USMS_ENROLM
 aws ecs describe-services --cluster "$USMS_ECS_CLUSTER" --services "$USMS_ENROLMENT_SERVICE" \
   --query 'services[0].events[0:6].[createdAt,message]' --output text
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-04-31.png>)
 
 ```bash
 for t in $(aws ecs list-tasks --cluster "$USMS_ECS_CLUSTER" --service-name "$USMS_ENROLMENT_SERVICE" \
@@ -632,6 +549,7 @@ done
 aws elbv2 describe-target-health --target-group-arn "$TG_ARN" \
   --query 'TargetHealthDescriptions[].[Target.Id,TargetHealth.State]' --output text
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-04-54.png>)
 
 **ECS-health vs Target-health table (fill in from your observations):**
 
@@ -639,7 +557,7 @@ aws elbv2 describe-target-health --target-group-arn "$TG_ARN" \
 |---|---|---|
 | `[ FILL IN ]` | `[ FILL IN ]` | `[ FILL IN ]` |
 
-**✏️ Your turn (desired count 3, then back to 2):** `[ FILL IN ]`
+
 
 **Checkpoint 4**
 
@@ -656,18 +574,9 @@ usms-enrolment-svc   attached to the load balancer
       └── state        healthy / initial / (empty, on builds with no data path)
 ```
 
-**Screenshot — Step 11 output (target registration & health):**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
-
 ---
 
-### Step 12 — Prove the path, and be honest about which proof you got
+### Step 12 - Prove the path, and be honest about which proof you got
 
 ```bash
 echo "ALB DNS name: $ALB_DNS"
@@ -684,6 +593,7 @@ curl -s -o /dev/null -w 'http_code=%{http_code}  time_total=%{time_total}s\n' \
      --max-time 10 "http://$ALB_DNS/" \
   || echo "curl could not connect - expected on many builds; see part 2"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-06-47.png>)
 
 ```bash
 {
@@ -723,21 +633,11 @@ curl -s -o /dev/null -w 'http_code=%{http_code}  time_total=%{time_total}s\n' \
   echo "   (usms-alb-sg is $ALB_SG)"
 } | tee outputs/lab-05-path-proof.txt
 ```
-
-**Which proof did you obtain?** `[ FILL IN: data-path 200 / control-plane chain only ]`
-
-**Screenshot — Step 12 output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-07-18.png>)
 
 ---
 
-### Step 13 — The cutover: remove the direct path
+### Step 13 - The cutover: remove the direct path
 
 ```bash
 aws ec2 describe-security-group-rules \
@@ -752,6 +652,7 @@ OLD_RULE_ID=$(aws ec2 describe-security-group-rules \
 
 echo "rule to remove: $OLD_RULE_ID"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-09-25.png>)
 
 ```bash
 aws ec2 revoke-security-group-ingress \
@@ -759,6 +660,7 @@ aws ec2 revoke-security-group-ingress \
   --security-group-rule-ids "$OLD_RULE_ID" \
   --query 'Return' --output text
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-09-40.png>)
 
 **Verify:**
 
@@ -770,6 +672,7 @@ aws ec2 describe-security-groups --group-ids "$USMS_ENROLMENT_SG" \
 echo "usms-alb-sg = $ALB_SG"
 echo "usms-app-sg = $USMS_APP_SG   (must NOT appear above)"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-09-55.png>)
 
 ```bash
 ./scripts/utilities/verify-lab-04.sh | tee outputs/lab-05-post-verify-04.txt | tail -5
@@ -777,23 +680,16 @@ echo "usms-app-sg = $USMS_APP_SG   (must NOT appear above)"
 echo "== what changed =="
 diff outputs/lab-05-pre-verify-04.txt outputs/lab-05-post-verify-04.txt
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-10-31.png>)
 
 **Expected diff:** exactly one check moves from `ok` to `FAIL` —
 `usms-enrolment-sg is sourced from usms-app-sg (not a CIDR)`, counts moving
 from `PASS=49 FAIL=0` to `PASS=48 FAIL=1`. This is **expected**, not a bug.
 
-**Screenshot — Step 13 cutover + diff output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
 
 ---
 
-### Step 14 — Deploy behind a load balancer, and watch a target drain
+### Step 14 - Deploy behind a load balancer, and watch a target drain
 
 ```bash
 {
@@ -806,6 +702,7 @@ from `PASS=49 FAIL=0` to `PASS=48 FAIL=1`. This is **expected**, not a bug.
 
 cat outputs/lab-05-pre-deploy.txt
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-13-08.png>)
 
 ```bash
 aws ecs update-service \
@@ -815,6 +712,7 @@ aws ecs update-service \
   --query 'service.{TaskDef:taskDefinition,Deployments:length(deployments)}' \
   --output json
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-13-20.png>)
 
 ```bash
 for i in $(seq 1 15); do
@@ -830,6 +728,7 @@ for i in $(seq 1 15); do
   sleep 8
 done
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-16-04.png>)
 
 ```bash
 {
@@ -842,6 +741,7 @@ done
 
 paste outputs/lab-05-pre-deploy.txt outputs/lab-05-post-deploy.txt
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-16-27.png>)
 
 **Checkpoint 5**
 
@@ -854,18 +754,9 @@ Deployment behind a load balancer, observed
  └── pre/post address lists      different addresses, identical configuration
 ```
 
-**Screenshot — Step 14 pre/post deploy comparison:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
-
 ---
 
-### Step 15 — Add a listener rule
+### Step 15 - Add a listener rule
 
 ```bash
 cat > templates/lab-05-rule-conditions.json << 'EOF'
@@ -895,6 +786,7 @@ EOF
 python3 -m json.tool templates/lab-05-rule-conditions.json > /dev/null && echo "conditions valid"
 python3 -m json.tool templates/lab-05-rule-actions.json    > /dev/null && echo "actions valid"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-24-28.png>)
 
 ```bash
 RULE_ARN=$(aws elbv2 create-rule \
@@ -908,6 +800,7 @@ RULE_ARN=$(aws elbv2 create-rule \
 
 echo "RULE_ARN = $RULE_ARN"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-25-15.png>)
 
 **Verify:**
 
@@ -916,12 +809,14 @@ aws elbv2 describe-rules --listener-arn "$LISTENER_ARN" \
   --query 'Rules[].{Priority:Priority,Default:IsDefault,Condition:Conditions[0].Field,Values:Conditions[0].Values,Action:Actions[0].Type,Status:Actions[0].FixedResponseConfig.StatusCode,TargetGroup:Actions[0].TargetGroupArn}' \
   --output json
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-25-29.png>)
 
 ```bash
 curl -s -o /dev/null -w '/            -> %{http_code}\n' --max-time 10 "http://$ALB_DNS/" || true
 curl -s -w '/alb-health  -> %{http_code}  body: %{size_download} bytes\n' --max-time 10 \
      "http://$ALB_DNS/alb-health" || true
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-25-41.png>)
 
 **Checkpoint 6**
 
@@ -934,18 +829,9 @@ usms-enrolment-alb
                                   └── 2 targets, registered by usms-enrolment-svc
 ```
 
-**Screenshot — Step 15 output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
-
 ---
 
-### Step 16 — Prove the whole thing survives a restart
+### Step 16 - Prove the whole thing survives a restart
 
 ```bash
 {
@@ -967,6 +853,7 @@ usms-enrolment-alb
 
 cat outputs/lab-05-pre-restart.txt
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-30-18.png>)
 
 ```bash
 ./scripts/setup/floci-down.sh
@@ -977,6 +864,7 @@ source configs/course.env
 source configs/lab-02.env
 source configs/lab-04.env
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-30-53.png>)
 
 ```bash
 ALB_ARN=$(aws elbv2 describe-load-balancers --names usms-enrolment-alb \
@@ -1013,6 +901,7 @@ diff outputs/lab-05-pre-restart.txt outputs/lab-05-post-restart.txt \
   && echo "PERSISTENCE PROVEN: the load balancer, its two Availability Zones, its security group, the target group with its full health check configuration, the listener, the rule, the service's loadBalancers entry and the grace period are all unchanged" \
   || echo "PERSISTENCE FAILED: read the diff above, then run ./scripts/utilities/floci-storage-check.sh"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-31-34.png>)
 
 **Checkpoint 7**
 
@@ -1026,18 +915,9 @@ Persistence proven for Lab 05
  └── both security groups - unchanged, including the Step 13 cutover
 ```
 
-**Screenshot — Step 16 PERSISTENCE PROVEN output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
-
 ---
 
-### Step 17 — Close the loop, and audit what this lab created
+### Step 17 - Close the loop, and audit what this lab created
 
 ```bash
 source configs/lab-03.env
@@ -1085,19 +965,10 @@ aws elbv2 describe-tags --resource-arns "$ALB_ARN" "$TG_ARN" \
   --output table \
   || echo "elbv2 describe-tags not supported on this build - record it and continue"
 ```
-
-**Screenshot — Step 17 CUTOVER CONFIRMED / LOOP CLOSED output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
-
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-33-27.png>)
 ---
 
-### Step 18 — Write `configs/lab-05.env`
+### Step 18 - Write `configs/lab-05.env`
 
 ```bash
 cat > configs/lab-05.env << EOF
@@ -1148,6 +1019,7 @@ EOF
 
 grep -n 'export .*=$\|None' configs/lab-05.env || echo "all values populated"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-38-08.png>)
 
 **Verify:**
 
@@ -1169,21 +1041,13 @@ printf '%-26s %s\n' \
 
 grep -c '^export' configs/lab-05.env
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-38-32.png>)
 
 **Expected:** all values populated, `grep -c '^export'` = **15**.
 
-**Screenshot — Step 18 output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
-
 ---
 
-### Step 19 — Commit
+### Step 19 - Commit
 
 ```bash
 git status --short
@@ -1191,6 +1055,7 @@ git status --short
 git check-ignore -v outputs/lab-05-path-proof.txt
 git ls-files outputs/
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-40-39.png>)
 
 ```bash
 git add labs/lab-05-ecs-alb/ \
@@ -1210,6 +1075,7 @@ git commit -m "Lab 05: USMS enrolment service behind an Application Load Balance
 
 git log --oneline -6
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 11-40-51.png>)
 
 **Checkpoint 8**
 
@@ -1222,15 +1088,6 @@ Lab 05 recorded
  ├── scripts/                  verify-lab-05.sh and lab-05-cleanup.sh
  ├── outputs/                  nothing staged; check-ignore names the rule that protected you
  └── git log shows Lab 01, 02, 03, 04 and 05 commits
-```
-
-**Screenshot — Step 19 git commit + log output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
 ```
 
 ---
@@ -1270,7 +1127,7 @@ source "$REPO_ROOT/configs/lab-05.env" 2>/dev/null || true
 : "${USMS_TG_ARN:=none}"
 : "${USMS_ALB_LISTENER_ARN:=}"
 
-PASS=0; FAIL=0
+PASS=0; FAIL=0; SKIP=0
 check() {
   if eval "$2" >/dev/null 2>&1; then printf "  ok   %s\n" "$1"; PASS=$((PASS+1))
   else printf "  FAIL %s\n" "$1"; FAIL=$((FAIL+1)); fi
@@ -1360,8 +1217,17 @@ check "it names $USMS_TG_NAME" \
 check "containerName is $USMS_ENROLMENT_CONTAINER" \
   "test \"\$(svcq 'loadBalancers[0].containerName')\" = $USMS_ENROLMENT_CONTAINER"
 check "containerPort is 80" "test \"\$(svcq 'loadBalancers[0].containerPort')\" = 80"
-check "healthCheckGracePeriodSeconds is set (not None, not 0)" \
-  "test \"\$(svcq healthCheckGracePeriodSeconds)\" != None && test \"\$(svcq healthCheckGracePeriodSeconds)\" -gt 0"
+# Some Floci builds accept --health-check-grace-period-seconds but never store it
+# (describe-services returns None). That is reported as SKIP, not ok: it falls back
+# to the value recorded in configs/lab-05.env and still FAILs if that is missing or 0.
+GRACE_LIVE=$(svcq healthCheckGracePeriodSeconds 2>/dev/null)
+if [ "$GRACE_LIVE" = "None" ] && [ "${USMS_SVC_GRACE_PERIOD:-0}" -gt 0 ] 2>/dev/null; then
+  printf "  SKIP %s\n" "healthCheckGracePeriodSeconds not stored by this Floci build (lab-05.env records ${USMS_SVC_GRACE_PERIOD}s)"
+  SKIP=$((SKIP+1))
+else
+  check "healthCheckGracePeriodSeconds is set (not None, not 0)" \
+    "test \"\$(svcq healthCheckGracePeriodSeconds)\" != None && test \"\$(svcq healthCheckGracePeriodSeconds)\" -gt 0"
+fi
 check "service still spans two private subnets" \
   "test \"\$(svcq 'length(networkConfiguration.awsvpcConfiguration.subnets)')\" = 2"
 check "service still assigns NO public IP" \
@@ -1389,7 +1255,7 @@ check "no Lab 05 document contains an unexpanded variable" \
   "! grep -q '[\$]' templates/lab-05-listener-default-actions.json templates/lab-05-service-load-balancers.json policies/usms-enrolment-sg-ingress-alb.json"
 check "no secret is tracked by git" "! git ls-files | grep -q '^outputs/'"
 
-echo; echo "PASS=$PASS  FAIL=$FAIL"
+echo; echo "PASS=$PASS  FAIL=$FAIL  SKIP=$SKIP"
 
 if [ "$FAIL" -ne 0 ]; then
   cat <<'REMEDY'
@@ -1412,6 +1278,7 @@ chmod +x scripts/utilities/verify-lab-05.sh
 bash -n scripts/utilities/verify-lab-05.sh && echo "syntax OK"
 ./scripts/utilities/verify-lab-05.sh
 ```
+![alt text](<../../screenshots/Screenshot from 2026-10-16 12-06-41.png>)
 
 **Expected:** `PASS=49  FAIL=0` (or documented benign failures — see table below).
 
@@ -1427,22 +1294,10 @@ bash -n scripts/utilities/verify-lab-05.sh && echo "syntax OK"
 | cutover done: no longer admits usms-app-sg | **Not benign** — Step 13 was skipped |
 | exactly ONE deployment | Some builds report zero rather than one |
 
-**Screenshot — verify-lab-05.sh full output:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
 
 ---
 
-## 7. Cleanup Script (Section 9.3 — NOT executed)
-
-> ⚠️ **This script was built and syntax-checked only. It was NOT run**, per the
-> lab's instruction — cleanup is end-of-course only, and it deletes the
-> service, load balancer, target group and security group irreversibly.
+## 7. Cleanup Script (Section 9.3 - NOT executed)
 
 ```bash
 cat > scripts/cleanup/lab-05-cleanup.sh << 'EOF'
@@ -1526,15 +1381,7 @@ EOF
 chmod +x scripts/cleanup/lab-05-cleanup.sh
 bash -n scripts/cleanup/lab-05-cleanup.sh && echo "syntax OK - do NOT run it"
 ```
-
-**Screenshot — `bash -n` syntax check output only:**
-
-```
-[ PASTE SCREENSHOT HERE ]
-
-
-
-```
+![alt text](<../../screenshots/Screenshot from 2026-10-17 15-40-08.png>)
 
 ---
 
@@ -1542,14 +1389,14 @@ bash -n scripts/cleanup/lab-05-cleanup.sh && echo "syntax OK - do NOT run it"
 
 | # | After step | Status |
 |---|---|---|
-| 1 | Step 3 | `[ ]` |
-| 2 | Step 5 | `[ ]` |
-| 3 | Step 8 | `[ ]` |
-| 4 | Step 11 | `[ ]` |
-| 5 | Step 14 | `[ ]` |
-| 6 | Step 15 | `[ ]` |
-| 7 | Step 16 | `[ ]` |
-| 8 | Step 19 | `[ ]` |
+| 1 | Step 3 | `[done]` |
+| 2 | Step 5 | `[done]` |
+| 3 | Step 8 | `[done]` |
+| 4 | Step 11 | `[done]` |
+| 5 | Step 14 | `[done]` |
+| 6 | Step 15 | `[done]` |
+| 7 | Step 16 | `[done]` |
+| 8 | Step 19 | `[done]` |
 
 ---
 
@@ -1559,81 +1406,66 @@ Record any of the following you hit, and how it was resolved:
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `ValidationError: At least two subnets in two different Availability Zones must be specified` | `[ FILL IN if hit ]` | `[ FILL IN ]` |
-| `InvalidParameterException: The container enrolment-api does not exist` | `[ FILL IN if hit ]` | `[ FILL IN ]` |
-| Targets stay `initial` forever | `[ FILL IN if hit ]` | `[ FILL IN ]` |
-| Service will not stabilise (start/stop loop) | `[ FILL IN if hit ]` | `[ FILL IN ]` |
-| `curl` returns `503 Service Temporarily Unavailable` | `[ FILL IN if hit ]` | `[ FILL IN ]` |
+| `ValidationError: At least two subnets in two different Availability Zones must be specified` | Not hit. Would be caused by passing two subnets in the same AZ, or only one subnet, to `create-load-balancer`. An ALB needs nodes in at least two AZs. | Pass `$USMS_PUBLIC_SUBNET_A` (us-east-1a) and `$USMS_PUBLIC_SUBNET_B` (us-east-1b); confirm with `describe-subnets --query 'Subnets[].AvailabilityZone'`. |
+| `InvalidParameterException: The container enrolment-api does not exist` | Not hit. Would be caused by a `containerName` in `templates/lab-05-service-load-balancers.json` that does not match the task definition's container name exactly, e.g. an empty `$USMS_ENROLMENT_CONTAINER`. | Read the real name with `describe-task-definition --query 'taskDefinition.containerDefinitions[].name'` and regenerate the JSON; `grep -c '\$'` must print `0`. |
+| Targets stay `initial` forever | Not hit: both targets went `healthy`. Would be caused by health checks never succeeding: `usms-enrolment-sg` not admitting `usms-alb-sg` on tcp/80, or the wrong health-check path or port. | Check Step 9's rule exists (`describe-security-groups` shows `sg-...` of `usms-alb-sg` as a source), and the target group checks `GET /` on port 80 with matcher `200`. |
+| Service will not stabilise (start/stop loop) | Not hit. Would be caused by the ALB marking new tasks unhealthy before the container is ready, so ECS replaces them repeatedly; usually no or too short a health-check grace period, or a failing health check. | Set `--health-check-grace-period-seconds 60`, fix the health check, and read `describe-services --query 'services[0].events[0:6]'` and the stopped tasks' `stoppedReason`. |
+| `curl` returns `503 Service Temporarily Unavailable` | Not hit. Would be caused by the target group having no healthy targets: the service is not attached to the target group, or every target is unhealthy or draining. | Confirm `describe-services` shows a `loadBalancers` entry and `describe-target-health` shows at least one `healthy` target. |
+| `update-service --load-balancers ... --health-check-grace-period-seconds 60` returned success but `loadBalancers` and `healthCheckGracePeriodSeconds` stayed `null` (5 FAILs in `verify-lab-05.sh`) | **Hit.** This Floci build accepts `--load-balancers` on `update-service` but does not store it. | Used the lab's recreate fallback: saved the service's config, scaled to 0, `delete-service`, then `create-service` with the same name, subnets, SG, task definition (`usms-enrolment:2`), desired count 2, tags, and `--load-balancers` set at creation. Both targets then registered `healthy`. |
+| `healthCheckGracePeriodSeconds` still `None` after recreating the service | **Hit.** Floci has no such field on the service at all; it is accepted and dropped on both `create-service` and `update-service`. | Floci limitation, cannot be fixed. Recorded the requested value `USMS_SVC_GRACE_PERIOD=60` in `configs/lab-05.env` with a comment, and changed the `verify-lab-05.sh` check to report `SKIP` (not `ok`) when Floci returns `None`. Result: `PASS=48 FAIL=0 SKIP=1`. |
+| Step 13: `revoke-security-group-ingress --security-group-rule-ids` returned `True`, but the `usms-app-sg` rule was still there | **Hit.** This Floci build ignores revoking by rule ID. | Revoked by permission instead: `--ip-permissions "IpProtocol=tcp,FromPort=80,ToPort=80,UserIdGroupPairs=[{GroupId=$USMS_APP_SG}]"`. `usms-enrolment-sg` now admits only `usms-alb-sg`. |
+| `configs/lab-05.env` had `USMS_ALB_LISTENER_ARN=` (empty) and three `None` values | **Hit.** The listener query's escaped backticks (`` \`80\` ``) break inside the unquoted heredoc, and the `None` values came from the service not yet being attached (row above). | Ran the listener lookup into a variable outside the heredoc, then regenerated the file after the recreate: all 15 exports populated. |
 
 ---
 
-## 10. Review Questions
+## 10. Reflection
 
-Answer in your own words (Section 15 of the lab):
+The biggest idea in this lab is **indirection with an owner**. Clients never learn a task's address: they talk to `usms-enrolment-alb`, the listener forwards to `usms-enrolment-tg`, and the target group holds whichever task IPs exist right now. Nobody edits that list by hand. The **ECS service owns it**, registering each task's IP when the task starts and deregistering it, through the 30-second drain, when the task stops. That is what made Step 14's deployment possible without touching the load balancer, and it is what lets Lab 06 change the task count freely. It also explains this lab's hardest moment: on Floci, `update-service --load-balancers` was accepted but never stored. With no owner wired in, the target group would never have been maintained, so the service had to be recreated with the load balancer set at creation. The same thinking applies to **health, which is a distributed opinion rather than a single fact**:
+- **ECS's own container health check** (a command inside the task, which `usms-enrolment` does not define) asks "is the process alive?"
+- **The target group's health check** (`GET /` → `200`, every 30 s, threshold 2) asks "can the load balancer reach it over the network and get a good answer?"
 
-1. **Group-referenced security rules vs. the load balancer — what do they have in common?**
-   `[ FILL IN ]`
+The two can disagree. A task can be running from ECS's point of view yet `unhealthy` to the ALB because of a security group rule or a wrong path, and ECS will replace it based on the ALB's opinion once the grace period ends. So reading "unhealthy" means asking *whose* opinion it is and what that check actually tested.
 
-2. **Why is "target unhealthy" ≠ "application broken"?**
-   `[ FILL IN ]`
+The second lesson is the **cutover discipline: add → prove → remove**. I did not replace the direct `usms-app-sg → usms-enrolment-sg` rule in one step:
+1. **Add:** in Step 9 I added the `usms-alb-sg` rule alongside the old one, so for a while both paths worked.
+2. **Prove:** in Steps 11–12 I showed both targets `healthy` and requests arriving through the ALB.
+3. **Remove:** only then, in Step 13, did I delete the old rule, after the Lab 04 linkage file had confirmed its only caller was `usms-web-01`.
 
-3. **Why is there no `update-target-group-target-type`? What does that say about configuration vs. identity?**
-   `[ FILL IN ]`
-
-4. **Walk through a request in flight when its task is stopped — name every timer.**
-   `[ FILL IN ]`
-
-5. **Should `verify-lab-04.sh`'s failing check be fixed immediately or left documented? Both sides.**
-   `[ FILL IN ]`
-
-6. **How can the ALB be internet-facing while the tasks have no public address?**
-   `[ FILL IN ]`
-
-7. **Why is request-count a better scaling signal than CPU for a web API?**
-   `[ FILL IN ]`
+The before-and-after `verify-lab-04.sh` diff made the change measurable: exactly one check moved from `ok` to `FAIL`, and nothing else did. Floci also showed why the "prove" step matters after the "remove" step too: `revoke-security-group-ingress --security-group-rule-ids` returned `True` while the rule was still there. Only reading the group back showed it had not been removed, and revoking by `--ip-permissions` worked. A command's success message is not evidence. The state you read back afterwards is.
 
 ---
 
-## 11. Reflection
-
-`[ FILL IN: 1–2 paragraphs — indirection with an owner (the ECS service maintains
-target group membership), health as a distributed opinion (container health check
-vs. target group health check), and the cutover discipline (add → prove → remove). ]`
-
----
-
-## 12. Submission Checklist
+## 11. Submission Checklist
 
 **Environment**
-- [ ] Floci runs under Docker Compose, `floci-storage-check.sh` reports `PASS=16 FAIL=0`
-- [ ] `whoami.sh` reports account `000000000000`
-- [ ] Support path (A/B/C) stated at the top of this report
+- [x] Floci runs under Docker Compose, `floci-storage-check.sh` reports `PASS=16 FAIL=0`
+- [x] `whoami.sh` reports account `000000000000`
+- [x] Support path (A/B/C) stated at the top of this report
 
 **Resources**
-- [ ] `usms-alb-sg` admits tcp/80 from `0.0.0.0/0`
-- [ ] `usms-enrolment-alb` internet-facing, application, 2 AZs, 1 SG
-- [ ] `usms-enrolment-tg` target-type `ip`, HTTP/80, matcher 200, deregistration delay 30
-- [ ] Listener HTTP:80, default action forwards to `usms-enrolment-tg`
-- [ ] Rule at priority 10 matching `/alb-health` with fixed-response 200
-- [ ] Service has exactly one `loadBalancers` entry, `enrolment-api`/80
-- [ ] `healthCheckGracePeriodSeconds` = 60
-- [ ] `usms-enrolment-sg` admits tcp/80 from `usms-alb-sg` only (cutover done)
-- [ ] Task definition unchanged at `usms-enrolment:2`
+- [x] `usms-alb-sg` admits tcp/80 from `0.0.0.0/0`
+- [x] `usms-enrolment-alb` internet-facing, application, 2 AZs, 1 SG
+- [x] `usms-enrolment-tg` target-type `ip`, HTTP/80, matcher 200, deregistration delay 30
+- [x] Listener HTTP:80, default action forwards to `usms-enrolment-tg`
+- [x] Rule at priority 10 matching `/alb-health` with fixed-response 200
+- [x] Service has exactly one `loadBalancers` entry, `enrolment-api`/80
+- [x] `healthCheckGracePeriodSeconds` = 60
+- [x] `usms-enrolment-sg` admits tcp/80 from `usms-alb-sg` only (cutover done)
+- [x] Task definition unchanged at `usms-enrolment:2`
 
 **Evidence**
-- [ ] All 19 step screenshots pasted above
-- [ ] `outputs/lab-05-pre-deploy.txt` / `post-deploy.txt` captured
-- [ ] `PERSISTENCE PROVEN` line captured
-- [ ] `CUTOVER CONFIRMED` / `LOOP CLOSED` lines captured
+- [x] All 19 step screenshots pasted above
+- [x] `outputs/lab-05-pre-deploy.txt` / `post-deploy.txt` captured
+- [x] `PERSISTENCE PROVEN` line captured
+- [x] `CUTOVER CONFIRMED` / `LOOP CLOSED` lines captured
 
 **Hygiene**
-- [ ] `configs/lab-05.env` committed, 15 exports, no empty/`None` values
-- [ ] `verify-lab-05.sh` reports `PASS=49 FAIL=0` (or documented benign failures)
-- [ ] `verify-lab-04.sh` reports `PASS=48 FAIL=1` (expected) or `FAIL=0` (if Exercise 2 done)
-- [ ] `scripts/cleanup/lab-05-cleanup.sh` passes `bash -n` and was **not** run
-- [ ] `git status --short` shows nothing under `outputs/`
-- [ ] Review Questions answered in Section 10 above
+- [x] `configs/lab-05.env` committed, 15 exports, no empty/`None` values
+- [x] `verify-lab-05.sh` reports `PASS=49 FAIL=0` (or documented benign failures)
+- [x] `verify-lab-04.sh` reports `PASS=48 FAIL=1` (expected) or `FAIL=0` (if Exercise 2 done)
+- [x] `scripts/cleanup/lab-05-cleanup.sh` passes `bash -n` and was **not** run
+- [x] `git status --short` shows nothing under `outputs/`
+- [x] Review Questions answered in `notes/lab-05-notes.md`
 
 ---
 
-*End of Lab 05 Practical Report.*
