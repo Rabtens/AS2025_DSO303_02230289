@@ -1,52 +1,57 @@
-# DSO303 – Lab 08: EKS Scaling and Service Exposure
-### Practical 4 (Part 2) – Making the Cluster Grow, and Letting the World In
-
-**Name:** Kuenzang
-**Institution:** College of Science and Technology (CST), Bhutan
-**Module:** DSO303 – Scaling, Orchestration, Monitoring & Observability
-**Lab:** Lab 08 – EKS Scaling and Service Exposure
-**Date:** _fill in submission date_
+# DSO303 - Lab 08: EKS Scaling and Service Exposure
+### Practical 4 (Part 2) - Making the Cluster Grow, and Letting the World In
 
 ---
 
 ## Table of Contents
 
-1. [Lab Overview](#1-lab-overview)
-2. [Learning Objectives](#2-learning-objectives)
-3. [Prerequisites Check](#3-prerequisites-check)
-4. [Environment Setup](#4-environment-setup)
-5. [Step 1 – Start the Environment & Verify Lab 07 Dependencies](#step-1)
-6. [Step 2 – Baseline Snapshot](#step-2)
-7. [Step 3 – The Four Dimensions of Scaling](#step-3)
-8. [Step 4 – Scale by Hand](#step-4)
-9. [Step 5 – Scale Declaratively & Configuration Drift](#step-5)
-10. [Step 6 – Requests, Limits and QoS Classes](#step-6)
-11. [Step 7 – The Metrics Pipeline](#step-7)
-12. [Step 8 – Create the HorizontalPodAutoscaler](#step-8)
-13. [Step 9 – Generate Load and Watch It Respond](#step-9)
-14. [Step 10 – Scale the Data Plane from the AWS Side](#step-10)
-15. [Step 11 – Cluster Autoscaler, Karpenter & nodeSelector](#step-11)
-16. [Step 12 – PodDisruptionBudget](#step-12)
-17. [Step 13 – Rung 1: ClusterIP and port-forward](#step-13)
-18. [Step 14 – Rung 2: NodePort](#step-14)
-19. [Step 15 – Rung 3: LoadBalancer](#step-15)
-20. [Step 16 – Rung 4: Ingress](#step-16)
-21. [Step 17 – Practical 2 vs Practical 4 Comparison](#step-17)
-22. [Step 18 – Persistence Check](#step-18)
-23. [Step 19 – Write configs/lab-08.env](#step-19)
-24. [Step 20 – Commit Work](#step-20)
-25. [Verification Script](#25-verification-script)
-26. [Independent Exercises](#26-independent-exercises)
-27. [Review Questions](#27-review-questions)
-28. [Cleanup](#28-cleanup)
-29. [Reflection](#29-reflection)
+- [DSO303 - Lab 08: EKS Scaling and Service Exposure](#dso303---lab-08-eks-scaling-and-service-exposure)
+    - [Practical 4 (Part 2) - Making the Cluster Grow, and Letting the World In](#practical-4-part-2---making-the-cluster-grow-and-letting-the-world-in)
+  - [Table of Contents](#table-of-contents)
+  - [1. Lab Overview](#1-lab-overview)
+  - [2. Learning Objectives](#2-learning-objectives)
+  - [3. Prerequisites Check](#3-prerequisites-check)
+  - [4. Environment Setup](#4-environment-setup)
+  - [Step 1 - Start the Environment \& Verify Lab 07 Dependencies](#step-1---start-the-environment--verify-lab-07-dependencies)
+  - [Step 2 - Baseline Snapshot](#step-2---baseline-snapshot)
+  - [Step 3 - The Four Dimensions of Scaling](#step-3---the-four-dimensions-of-scaling)
+    - [My turn – written answer](#my-turn--written-answer)
+  - [Step 4 – Scale by Hand](#step-4--scale-by-hand)
+  - [Step 5 - Scale Declaratively \& Configuration Drift](#step-5---scale-declaratively--configuration-drift)
+  - [Step 6 - Requests, Limits and QoS Classes](#step-6---requests-limits-and-qos-classes)
+    - [My turn - Guaranteed QoS experiment](#my-turn---guaranteed-qos-experiment)
+  - [Step 7 - The Metrics Pipeline](#step-7---the-metrics-pipeline)
+  - [Step 8 - Create the HorizontalPodAutoscaler](#step-8---create-the-horizontalpodautoscaler)
+  - [Step 9 - Generate Load and Watch It Respond](#step-9---generate-load-and-watch-it-respond)
+  - [Step 10 - Scale the Data Plane from the AWS Side](#step-10---scale-the-data-plane-from-the-aws-side)
+  - [Step 11 - Cluster Autoscaler, Karpenter \& nodeSelector](#step-11---cluster-autoscaler-karpenter--nodeselector)
+  - [Step 12 - PodDisruptionBudget](#step-12---poddisruptionbudget)
+  - [Step 13 - Rung 1: ClusterIP and port-forward](#step-13---rung-1-clusterip-and-port-forward)
+  - [Step 14 - Rung 2: NodePort](#step-14---rung-2-nodeport)
+  - [Step 15 - Rung 3: LoadBalancer](#step-15---rung-3-loadbalancer)
+  - [Step 16 - Rung 4: Ingress](#step-16---rung-4-ingress)
+    - [Annotation ↔ Lab 05 `elbv2` mapping](#annotation--lab-05-elbv2-mapping)
+  - [Step 17 - Practical 2 vs Practical 4 Comparison](#step-17---practical-2-vs-practical-4-comparison)
+      - [Scaling](#scaling)
+      - [Exposure](#exposure)
+  - [Step 18 - Persistence Check](#step-18---persistence-check)
+  - [Step 19 - Write configs/lab-08.env](#step-19---write-configslab-08env)
+  - [](#)
+  - [Step 20 - Commit Work](#step-20---commit-work)
+  - [25. Verification Script](#25-verification-script)
+    - [Smoke test](#smoke-test)
+  - [26. Independent Exercises](#26-independent-exercises)
+  - [27. Review Questions](#27-review-questions)
+  - [28. Cleanup](#28-cleanup)
+  - [29. Reflection](#29-reflection)
+  - [Lab Assessment Checklist](#lab-assessment-checklist)
 
 ---
 
 ## 1. Lab Overview
 
 This lab picks up where Lab 07 left off. In Lab 07, the USMS application (three
-microservices — `usms-gateway`, `usms-enrolment`, `usms-results`) was deployed to
+microservices - `usms-gateway`, `usms-enrolment`, `usms-results`) was deployed to
 EKS and made discoverable *inside* the cluster, but nothing was reachable from
 outside it. Lab 08 answers two questions:
 
@@ -71,17 +76,17 @@ cluster.
 
 By the end of this lab I will be able to:
 
-- [ ] Name the four independent dimensions along which a Kubernetes workload scales, and which object controls each.
-- [ ] Scale a Deployment imperatively and declaratively, and explain the resulting configuration drift.
-- [ ] Explain how a HorizontalPodAutoscaler computes utilisation, and why a missing resource request makes it inert.
-- [ ] Deploy an `autoscaling/v2` HPA with an explicit `behavior` block, mapped to its Lab 06 equivalent.
-- [ ] Generate load against a service and observe an autoscaler responding — or diagnose why it did not.
-- [ ] Change a managed node group's scaling configuration from the AWS CLI.
-- [ ] Distinguish the Cluster Autoscaler and Karpenter from the HorizontalPodAutoscaler.
-- [ ] Write a PodDisruptionBudget and state what it does and does not protect against.
-- [ ] Expose a Service four different ways — port-forward, NodePort, LoadBalancer, Ingress.
-- [ ] Compare Kubernetes Ingress with the Application Load Balancer of Lab 05.
-- [ ] Prove that scaling and exposure configuration survive a restart of the emulator.
+- [x] Name the four independent dimensions along which a Kubernetes workload scales, and which object controls each.
+- [x] Scale a Deployment imperatively and declaratively, and explain the resulting configuration drift.
+- [x] Explain how a HorizontalPodAutoscaler computes utilisation, and why a missing resource request makes it inert.
+- [x] Deploy an `autoscaling/v2` HPA with an explicit `behavior` block, mapped to its Lab 06 equivalent.
+- [x] Generate load against a service and observe an autoscaler responding — or diagnose why it did not.
+- [x] Change a managed node group's scaling configuration from the AWS CLI.
+- [x] Distinguish the Cluster Autoscaler and Karpenter from the HorizontalPodAutoscaler.
+- [x] Write a PodDisruptionBudget and state what it does and does not protect against.
+- [x] Expose a Service four different ways — port-forward, NodePort, LoadBalancer, Ingress.
+- [x] Compare Kubernetes Ingress with the Application Load Balancer of Lab 05.
+- [x] Prove that scaling and exposure configuration survive a restart of the emulator.
 
 ---
 
@@ -89,11 +94,11 @@ By the end of this lab I will be able to:
 
 | Prerequisite | Required | Status |
 |---|---|---|
-| Lab 07 complete, `configs/lab-07.env` populated | ✅ | ☐ |
-| `verify-lab-07.sh` passing (FAIL=0 Path A / FAIL=3 Path B) | ✅ | ☐ |
-| `usms-enrolment` declares CPU request `50m` | ✅ | ☐ |
-| Cluster tagged `_lb_ports_=8081,8082` | ✅ | ☐ |
-| kubectl, AWS CLI v2 installed | ✅ | ☐ |
+| Lab 07 complete, `configs/lab-07.env` populated | ✅ | Done |
+| `verify-lab-07.sh` passing (FAIL=0 Path A / FAIL=3 Path B) | ✅ | Done |
+| `usms-enrolment` declares CPU request `50m` | ✅ | Done |
+| Cluster tagged `_lb_ports_=8081,8082` | ✅ | Done |
+| kubectl, AWS CLI v2 installed | ✅ | Done |
 
 **Tool versions:**
 
@@ -102,12 +107,10 @@ kubectl version --client
 aws --version
 ```
 
-📸 **Screenshot 3.1** – *tool version output*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 13-42-02.png>)
 
----
+
+
 
 ## 4. Environment Setup
 
@@ -120,16 +123,12 @@ ls -d manifests/*
 ```
 manifests/lab-07  manifests/lab-08
 ```
-
-📸 **Screenshot 4.1** – *directory structure created*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 13-43-31.png>)
 
 ---
 
 <a name="step-1"></a>
-## Step 1 – Start the Environment & Verify Lab 07 Dependencies
+## Step 1 - Start the Environment & Verify Lab 07 Dependencies
 
 **Purpose:** Two values from Lab 07 determine whether this lab can be done at
 all — the enrolment service's CPU request (the HPA's denominator) and the
@@ -185,15 +184,9 @@ kubectl rollout status deployment/usms-enrolment --timeout=120s
 kubectl get deploy,svc,cm,secret
 ```
 
-📸 **Screenshot Step 1.1** – *the two-checks output (CPU request + tag)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 13-45-07.png>)
 
-📸 **Screenshot Step 1.2** – *verify-lab-07.sh tail + get deploy,svc,cm,secret*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 13-45-31.png>)
 
 **Checkpoint 1**
 ```
@@ -208,7 +201,7 @@ Baseline recorded in outputs/lab-08-baseline.txt
 ---
 
 <a name="step-2"></a>
-## Step 2 – Baseline Snapshot
+## Step 2 - Baseline Snapshot
 
 **Purpose:** Capture a "before" snapshot so later numbers have something to
 compare against.
@@ -234,10 +227,7 @@ echo "--- fresh baseline ---"
 } | tee outputs/lab-08-baseline.txt
 ```
 
-📸 **Screenshot Step 2.1** – *baseline output (`outputs/lab-08-baseline.txt`)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 13-47-16.png>)
 
 **Checkpoint 2** — three Deployments at Lab 07 counts, all Services `ClusterIP`
 with `<none>` external, at least one node `Ready`.
@@ -245,7 +235,7 @@ with `<none>` external, at least one node `Ready`.
 ---
 
 <a name="step-3"></a>
-## Step 3 – The Four Dimensions of Scaling
+## Step 3 - The Four Dimensions of Scaling
 
 **Purpose:** Before moving any number, know which of four independent things
 is being moved.
@@ -273,15 +263,13 @@ is being moved.
    limit: not changeable in place
 ```
 
-### ✏️ My turn – written answer
+### My turn – written answer
 
 > `usms-enrolment` needs to handle ten times its current traffic. Walk through
 > the four dimensions and say which you would use, in which order, and what
 > you would check between each.
 
-```
-[ WRITE YOUR 3–4 SENTENCE ANSWER HERE IN notes/lab-08-notes.md ]
-```
+> I would start with **dimension 1 (horizontal, workload)**: raise the replica count of `usms-enrolment` (through the HPA's `maxReplicas`), because it is the fastest change and restarts nothing. After each increase I check `kubectl get pods` for `Pending` pods and the node's "Allocated resources". When pods start going `Pending` because the nodes are full by *requests*, I move to **dimension 3 (horizontal, infrastructure)**: raise the node group's `desiredSize`/`maxSize`, then check that the new nodes are `Ready` and the pending pods get scheduled. Only if a single pod is throttled at its 200m CPU limit or gets OOMKilled would I use **dimension 2 (vertical, workload)**, raising requests/limits and re-checking the HPA percentage, because the denominator has changed. **Dimension 4 (bigger nodes)** comes last because an instance type cannot be changed in place: I would create a new node group, cordon and drain the old one, and check that the PDBs allow the drain.
 
 ---
 
@@ -296,6 +284,9 @@ Step 8, it does by performing this same operation.
 ```bash
 kubectl get pods -w -l app=usms-enrolment
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 13-52-42.png>)
+
+![alt text](<../../screenshots/Screenshot from 2026-11-07 13-53-59.png>)
 
 **Terminal 1 – scale up:**
 
@@ -306,6 +297,7 @@ kubectl rollout status deployment/usms-enrolment --timeout=120s
 kubectl get deploy usms-enrolment
 kubectl get endpoints usms-enrolment
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 13-53-17.png>)
 
 **Confirm traffic spreads across five pods:**
 
@@ -316,6 +308,7 @@ kubectl run usms-debug --rm -it --restart=Never --image=busybox:1.36 -- sh -c '
   done
 ' | grep -o '"pod":"[^"]*"' | sort | uniq -c | sort -rn
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 13-54-23.png>)
 
 **Scale back down:**
 
@@ -324,28 +317,14 @@ kubectl scale deployment/usms-enrolment --replicas=2
 kubectl rollout status deployment/usms-enrolment --timeout=120s
 kubectl get endpoints usms-enrolment
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 13-54-35.png>)
 
 Stop the watcher with `Ctrl+C`.
-
-📸 **Screenshot Step 4.1** – *pod watcher showing scale-up to 5*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 4.2** – *unique pod count from the 40-request loop*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 4.3** – *scale-down / pods Terminating in watcher*
-```
-[ SPACE FOR SCREENSHOT ]
-```
 
 ---
 
 <a name="step-5"></a>
-## Step 5 – Scale Declaratively & Configuration Drift
+## Step 5 - Scale Declaratively & Configuration Drift
 
 **Purpose:** Show what it costs when the cluster and the repository disagree.
 
@@ -356,6 +335,7 @@ kubectl scale deployment/usms-enrolment --replicas=6
 kubectl get deploy usms-enrolment -o jsonpath='{.spec.replicas}'; echo
 grep -n 'replicas:' manifests/lab-07/20-enrolment.yaml
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 13-57-10.png>)
 
 **Watch apply silently undo it:**
 
@@ -364,6 +344,7 @@ kubectl apply -f manifests/lab-07/20-enrolment.yaml
 sleep 5
 kubectl get deploy usms-enrolment -o jsonpath='{.spec.replicas}'; echo
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 13-57-29.png>)
 
 **The habit that prevents it — `kubectl diff`:**
 
@@ -375,6 +356,7 @@ kubectl diff -f manifests/lab-07/20-enrolment.yaml || true
 kubectl apply -f manifests/lab-07/20-enrolment.yaml
 kubectl get deploy usms-enrolment -o jsonpath='{.spec.replicas}'; echo
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 13-57-56.png>)
 
 **Restore baseline:**
 
@@ -385,21 +367,7 @@ kubectl rollout status deployment/usms-enrolment --timeout=120s
 rm -f manifests/lab-07/*.bak
 kubectl get deploy
 ```
-
-📸 **Screenshot Step 5.1** – *drift: cluster=6, file=2*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 5.2** – *apply silently reverting to 2*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 5.3** – *`kubectl diff` output (exit code 1)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 13-58-16.png>)
 
 **Checkpoint 2**
 ```
@@ -415,7 +383,7 @@ Scaling, by hand and by file
 ---
 
 <a name="step-6"></a>
-## Step 6 – Requests, Limits and QoS Classes
+## Step 6 - Requests, Limits and QoS Classes
 
 **Purpose:** Step 8's autoscaler divides by the number set here.
 
@@ -440,6 +408,7 @@ limits     what the KUBELET enforces at runtime
 kubectl get pods -o custom-columns=\
 'NAME:.metadata.name,QOS:.status.qosClass,CPUREQ:.spec.containers[0].resources.requests.cpu,CPULIM:.spec.containers[0].resources.limits.cpu'
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-00-51.png>)
 
 **Scheduler's arithmetic:**
 
@@ -448,6 +417,7 @@ NODE=$(kubectl get pods -l app=usms-enrolment -o jsonpath='{.items[0].spec.nodeN
 echo "inspecting node: $NODE"
 kubectl describe node "$NODE" | sed -n '/Allocated resources/,/Events/p'
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-01-12.png>)
 
 **Denominator arithmetic:**
 
@@ -458,8 +428,9 @@ echo "request        : $REQ"
 echo "HPA target 50% : this means 50% of $REQ per pod, i.e. 25m average across all pods"
 echo "NOT 50% of a node, and NOT 50% of the limit"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-01-34.png>)
 
-### ✏️ My turn – Guaranteed QoS experiment
+### My turn - Guaranteed QoS experiment
 
 > Make `usms-gateway` a Guaranteed pod without changing what it can do, then
 > put it back. Record the QoS class before and after.
@@ -476,31 +447,15 @@ kubectl set resources deployment/usms-gateway --requests=cpu=50m,memory=32Mi --l
 kubectl rollout status deployment/usms-gateway --timeout=120s
 kubectl get pod -l app=usms-gateway -o custom-columns='NAME:.metadata.name,QOS:.status.qosClass'
 ```
-
-📸 **Screenshot Step 6.1** – *QoS classes for all pods (Burstable)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 6.2** – *node "Allocated resources" table*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 6.3** – *gateway QoS: Burstable → Guaranteed → Burstable*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-03-12.png>)
 
 > **When would I want Guaranteed?**
-> ```
-> [ WRITE YOUR ONE-SENTENCE ANSWER HERE ]
-> ```
+> I would want Guaranteed for a critical pod that must be the last one evicted under node memory pressure and needs predictable CPU, for example the single `usms-gateway` entry point or a database, accepting that it can never burst above its request.
 
 ---
 
 <a name="step-7"></a>
-## Step 7 – The Metrics Pipeline
+## Step 7 - The Metrics Pipeline
 
 **Purpose:** The HPA reads a metric that comes from an add-on API, not core
 Kubernetes.
@@ -526,6 +481,7 @@ kubectl get --raw /apis/metrics.k8s.io/v1beta1 >/dev/null 2>&1 \
   && echo "metrics API: AVAILABLE" \
   || echo "metrics API: NOT AVAILABLE"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-06-03.png>)
 
 **If NOT AVAILABLE, install it:**
 
@@ -541,12 +497,14 @@ kubectl -n kube-system patch deployment metrics-server --type=json \
   -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
 kubectl -n kube-system rollout status deployment/metrics-server --timeout=120s
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-18-05.png>)
 
 **If no network access to install it:**
 
 ```bash
 echo "metrics API unavailable - Step 9 will use the manual fallback" >> notes/lab-08-notes.md
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-18-56.png>)
 
 **Verify:**
 
@@ -554,25 +512,16 @@ echo "metrics API unavailable - Step 9 will use the manual fallback" >> notes/la
 kubectl top nodes 2>/dev/null || echo "kubectl top nodes: unavailable"
 kubectl top pods 2>/dev/null  || echo "kubectl top pods: unavailable"
 ```
-
-📸 **Screenshot Step 7.1** – *metrics API registration check*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 7.2** – *`kubectl top nodes` / `kubectl top pods` output*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-19-13.png>)
 
 ---
 
 <a name="step-8"></a>
-## Step 8 – Create the HorizontalPodAutoscaler
+## Step 8 - Create the HorizontalPodAutoscaler
 
 **Purpose:** The object the whole scaling half of this lab is built around.
 
-**Manifest — `manifests/lab-08/10-hpa-enrolment.yaml`:**
+**Manifest - `manifests/lab-08/10-hpa-enrolment.yaml`:**
 
 ```yaml
 apiVersion: autoscaling/v2
@@ -628,6 +577,9 @@ sleep 30
 kubectl get hpa
 kubectl describe hpa usms-enrolment-hpa | tail -20
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-23-11.png>)
+
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-31-02.png>)
 
 **Expected:**
 ```
@@ -635,27 +587,12 @@ NAME                 REFERENCE                   TARGETS       MINPODS   MAXPODS
 usms-enrolment-hpa   Deployment/usms-enrolment   cpu: 2%/50%   2         8         2          32s
 ```
 
-📸 **Screenshot Step 8.1** – *`kubectl apply` output for the HPA manifest*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 8.2** – *`kubectl get hpa` showing TARGETS = `<percentage>/50%`*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 8.3** – *`kubectl describe hpa` Conditions & Events block*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
 ---
 
 <a name="step-9"></a>
-## Step 9 – Generate Load and Watch It Respond
+## Step 9 - Generate Load and Watch It Respond
 
-**Watcher script — `scripts/utilities/hpa-watch.sh`:**
+**Watcher script - `scripts/utilities/hpa-watch.sh`:**
 
 ```bash
 cat > scripts/utilities/hpa-watch.sh << 'EOF'
@@ -687,14 +624,18 @@ EOF
 chmod +x scripts/utilities/hpa-watch.sh
 bash -n scripts/utilities/hpa-watch.sh && echo "hpa-watch.sh: valid bash syntax"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-32-20.png>)
 
-**Terminal 2 – run it and leave it running:**
+**Terminal 2 - run it and leave it running:**
 
 ```bash
 ./scripts/utilities/hpa-watch.sh 60
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-33-14.png>)
 
-**Load generator — `manifests/lab-08/20-loadgen.yaml`:**
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-36-14.png>)
+
+**Load generator - `manifests/lab-08/20-loadgen.yaml`:**
 
 ```yaml
 apiVersion: apps/v1
@@ -742,16 +683,19 @@ spec:
 kubectl apply -f manifests/lab-08/20-loadgen.yaml
 kubectl rollout status deployment/usms-loadgen --timeout=120s
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-34-00.png>)
 
 **Remove the load and watch the stabilisation window:**
 
 ```bash
 kubectl scale deployment/usms-loadgen --replicas=0
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-34-15.png>)
 
 ```bash
 kubectl describe hpa usms-enrolment-hpa | grep -A8 'Events:'
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-34-27.png>)
 
 **Fallback (no metrics pipeline available):**
 
@@ -761,6 +705,7 @@ kubectl scale deployment/usms-enrolment --replicas=4
 ./scripts/utilities/hpa-watch.sh 6
 kubectl scale deployment/usms-enrolment --replicas=2
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-35-43.png>)
 
 **If pods sit Pending under scale-out:**
 
@@ -768,21 +713,6 @@ kubectl scale deployment/usms-enrolment --replicas=2
 kubectl get pods -l app=usms-enrolment
 kubectl describe pod <a pending one> | tail -6
 kubectl describe node <any node> | sed -n '/Allocated resources/,/Events/p'
-```
-
-📸 **Screenshot Step 9.1** – *`hpa-watch.sh` output while load is applied (replicas climbing)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 9.2** – *`hpa-watch.sh` output after load removed (5-minute stabilisation window holding)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 9.3** – *`kubectl describe hpa` Events showing SuccessfulRescale entries*
-```
-[ SPACE FOR SCREENSHOT ]
 ```
 
 **Checkpoint 3**
@@ -798,9 +728,9 @@ Scaling, by controller
 ---
 
 <a name="step-10"></a>
-## Step 10 – Scale the Data Plane from the AWS Side
+## Step 10 - Scale the Data Plane from the AWS Side
 
-**Purpose:** Dimension 3 (more nodes) — the only step in this lab using the
+**Purpose:** Dimension 3 (more nodes) - the only step in this lab using the
 AWS CLI directly.
 
 **Read current configuration:**
@@ -813,6 +743,7 @@ aws eks describe-nodegroup \
                       Types:instanceTypes,Subnets:subnets,Labels:labels}' \
   --output json | tee outputs/lab-08-nodegroup-before.json
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-42-37.png>)
 
 **Change it:**
 
@@ -838,6 +769,7 @@ aws eks describe-update \
   --query 'update.{Status:status,Type:type,Params:params}' --output json 2>/dev/null \
   || echo "describe-update unsupported on this build - read the node group directly instead"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-48-42.png>)
 
 **Verify from both sides:**
 
@@ -849,30 +781,28 @@ aws eks describe-nodegroup \
 echo "--- and what Kubernetes actually sees ---"
 kubectl get nodes -o custom-columns='NAME:.metadata.name,STATUS:.status.conditions[-1].type,LABELS:.metadata.labels.workload'
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-07 14-49-22.png>)
 
 > **Path B note:** `usms-eks-nodes` may not exist as an AWS object on this
 > build. If so, record it in `notes/lab-08-notes.md` and answer Section 15
 > Question 4 conceptually.
 
-📸 **Screenshot Step 10.1** – *node group scaling config BEFORE*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 10.2** – *`update-nodegroup-config` response*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 10.3** – *node group scaling config AFTER (min 2 / max 6 / desired 3)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+**My result (Path B):** `describe-nodegroup` works and shows `usms-eks-nodes` ACTIVE with
+`minSize 2 / maxSize 4 / desiredSize 2`, `t3.small`, labels `workload=usms, tier=app`
+(`outputs/lab-08-nodegroup-before.json`). `update-nodegroup-config` fails with
+`400 InvalidArgument: POST requires either ?uploads, ?uploadId, ?restore or ?select parameter`.
+The CLI sends the correct request (`POST /clusters/usms-eks-cluster/node-groups/usms-eks-nodes/update-config`),
+but Floci 1.7.0 has no route for `UpdateNodegroupConfig` (or `ListUpdates`), so the request falls
+through to its S3 handler. The "after" read still shows 2/4/2 (`outputs/lab-08-nodegroup-after.json`),
+which confirms nothing changed. On real AWS this call would set the managed node group's ASG to
+min 2 / max 6 / desired 3. EKS would launch a third `t3.small`, it would join the cluster
+with the `workload=usms, tier=app` labels, and `kubectl get nodes` would show it `Ready`. This
+is the step that a Cluster Autoscaler or Karpenter automates (Step 11).
 
 ---
 
 <a name="step-11"></a>
-## Step 11 – Cluster Autoscaler, Karpenter & nodeSelector
+## Step 11 - Cluster Autoscaler, Karpenter & nodeSelector
 
 **Concept comparison:**
 
@@ -894,6 +824,7 @@ kubectl get nodes -o custom-columns='NAME:.metadata.name,STATUS:.status.conditio
 kubectl get nodes --show-labels | tr ',' '\n' | grep -E 'workload|tier' \
   || echo "node group labels did not reach the nodes"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-21-30.png>)
 
 **Apply labels by hand if needed:**
 
@@ -904,6 +835,7 @@ done
 
 kubectl get nodes -L workload,tier
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-21-30.png>)
 
 **Require the label:**
 
@@ -914,6 +846,7 @@ kubectl patch deployment usms-enrolment --type=merge \
 kubectl rollout status deployment/usms-enrolment --timeout=120s
 kubectl get pods -l app=usms-enrolment -o wide
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-23-57.png>)
 
 **Prove the selector is enforced (a bad value):**
 
@@ -925,6 +858,7 @@ sleep 15
 kubectl get pods -l app=usms-enrolment
 kubectl describe pod -l app=usms-enrolment | grep -A3 'Events:' | tail -4
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-27-57.png>)
 
 **Put it back:**
 
@@ -935,6 +869,7 @@ kubectl patch deployment usms-enrolment --type=merge \
 kubectl rollout status deployment/usms-enrolment --timeout=120s
 kubectl get pods -l app=usms-enrolment -o wide
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-28-10.png>)
 
 **Update the repository manifest (drift prevention):**
 
@@ -954,28 +889,14 @@ PY
 
 kubectl diff -f manifests/lab-07/20-enrolment.yaml || true
 ```
-
-📸 **Screenshot Step 11.1** – *node labels (`workload`, `tier`)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 11.2** – *pod Pending with `FailedScheduling` event (bad nodeSelector)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 11.3** – *pods Running again after nodeSelector restored*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-31-22.png>)
 
 ---
 
 <a name="step-12"></a>
-## Step 12 – PodDisruptionBudget
+## Step 12 - PodDisruptionBudget
 
-**Concept — voluntary vs involuntary disruption:**
+**Concept - voluntary vs involuntary disruption:**
 
 ```
 VOLUNTARY - has an API, a PDB IS CONSULTED
@@ -985,7 +906,7 @@ INVOLUNTARY - nobody asked, a PDB IS IGNORED
   kernel panic, OOM eviction, manual instance termination, hardware failure
 ```
 
-**Manifest — `manifests/lab-08/30-pdb-gateway.yaml`:**
+**Manifest - `manifests/lab-08/30-pdb-gateway.yaml`:**
 
 ```yaml
 apiVersion: policy/v1
@@ -1023,6 +944,7 @@ spec:
 kubectl apply -f manifests/lab-08/30-pdb-gateway.yaml
 kubectl get pdb
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-45-10.png>)
 
 **Prove the eviction API is consulted, then prove `delete` is not:**
 
@@ -1048,6 +970,7 @@ kubectl create --raw "/api/v1/namespaces/usms/pods/$POD/eviction" \
 ```
 Error from server (TooManyRequests): Cannot evict pod as it would violate the pod's disruption budget.
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-46-10.png>)
 
 **Contrast with plain delete:**
 
@@ -1055,27 +978,14 @@ Error from server (TooManyRequests): Cannot evict pod as it would violate the po
 kubectl delete pod "$POD"
 kubectl get pods -l app=usms-gateway
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-47-16.png>)
 
 **Dry-run drain of the node:**
 
 ```bash
 kubectl drain "$NODE" --ignore-daemonsets --delete-emptydir-data --dry-run=client 2>&1 | tail -5
 ```
-
-📸 **Screenshot Step 12.1** – *`kubectl get pdb` (ALLOWED DISRUPTIONS column)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 12.2** – *eviction API refused with `TooManyRequests`*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 12.3** – *`kubectl delete pod` succeeding despite the PDB*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-47-33.png>)
 
 **Checkpoint 4**
 ```
@@ -1091,7 +1001,7 @@ Infrastructure scaling and safety
 ---
 
 <a name="step-13"></a>
-## Step 13 – Rung 1: ClusterIP and port-forward
+## Step 13 - Rung 1: ClusterIP and port-forward
 
 **Service types reference:**
 
@@ -1113,12 +1023,14 @@ echo "gateway ClusterIP: $CIP"
 
 curl -s --max-time 5 "http://$CIP/" || echo "as expected: a ClusterIP is not routable from your machine"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-50-44.png>)
 
 **Tunnel to it:**
 
 ```bash
 kubectl port-forward svc/usms-gateway 18080:80
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-51-26.png>)
 
 **Terminal 2:**
 
@@ -1127,30 +1039,16 @@ curl -s http://localhost:18080/ ; echo
 curl -s http://localhost:18080/enrolment/ ; echo
 curl -s http://localhost:18080/results/ ; echo
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-51-42.png>)
 
 Stop the forward with `Ctrl+C`.
-
-📸 **Screenshot Step 13.1** – *curl to ClusterIP failing*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 13.2** – *`kubectl port-forward` output*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 13.3** – *curl to `localhost:18080` for `/`, `/enrolment/`, `/results/`*
-```
-[ SPACE FOR SCREENSHOT ]
-```
 
 ---
 
 <a name="step-14"></a>
-## Step 14 – Rung 2: NodePort
+## Step 14 - Rung 2: NodePort
 
-**Manifest — `manifests/lab-08/40-service-nodeport.yaml`:**
+**Manifest - `manifests/lab-08/40-service-nodeport.yaml`:**
 
 ```yaml
 apiVersion: v1
@@ -1177,6 +1075,7 @@ spec:
 kubectl apply -f manifests/lab-08/40-service-nodeport.yaml
 kubectl get svc usms-results-np -o wide
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-53-25.png>)
 
 **Reach it from inside the cluster on a node address:**
 
@@ -1187,6 +1086,7 @@ echo "node internal IP: $NODEIP"
 kubectl run usms-debug --rm -it --restart=Never --image=busybox:1.36 -- \
   wget -qO- "http://$NODEIP:30080/"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-53-45.png>)
 
 **Prove every node answers:**
 
@@ -1197,6 +1097,7 @@ for IP in $(kubectl get nodes -o jsonpath='{range .items[*]}{.status.addresses[?
     wget -qO- --timeout=5 "http://$IP:30080/" 2>/dev/null || echo "  no answer"
 done
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-54-19.png>)
 
 **From your machine (fallback if not published):**
 
@@ -1208,21 +1109,9 @@ kubectl port-forward svc/usms-results-np 30080:80
 # then, in another terminal:
 curl -s http://localhost:30080/ ; echo
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-55-06.png>)
 
-📸 **Screenshot Step 14.1** – *`kubectl get svc usms-results-np` showing `80:30080/TCP`*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 14.2** – *response reachable via node internal IP*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 14.3** – *loop showing every node answering, pod field varying*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-55-19.png>)
 
 **Checkpoint 5**
 ```
@@ -1238,9 +1127,9 @@ Exposure ladder, rungs 1 and 2
 ---
 
 <a name="step-15"></a>
-## Step 15 – Rung 3: LoadBalancer
+## Step 15 - Rung 3: LoadBalancer
 
-**Manifest — `manifests/lab-08/50-service-loadbalancer.yaml`:**
+**Manifest - `manifests/lab-08/50-service-loadbalancer.yaml`:**
 
 ```yaml
 apiVersion: v1
@@ -1271,12 +1160,14 @@ spec:
 kubectl apply -f manifests/lab-08/50-service-loadbalancer.yaml
 kubectl get svc usms-gateway -o wide
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 10-58-15.png>)
 
 **Watch for an address (60s then Ctrl+C):**
 
 ```bash
 kubectl get svc usms-gateway -w
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-00-08.png>)
 
 **Reach it:**
 
@@ -1293,6 +1184,9 @@ echo "EXTERNAL-IP = ${EXT:-none}"
 [ -n "$EXT" ] && kubectl run usms-debug --rm -i --restart=Never --image=busybox:1.36 -- \
   wget -qO- --timeout=5 "http://$EXT/" 2>/dev/null
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-09-26.png>)
+
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-09-48.png>)
 
 **One-line proof of the ladder:**
 
@@ -1300,30 +1194,16 @@ echo "EXTERNAL-IP = ${EXT:-none}"
 kubectl get svc usms-gateway \
   -o jsonpath='{"type="}{.spec.type}{"  clusterIP="}{.spec.clusterIP}{"  nodePort="}{.spec.ports[0].nodePort}{"  external="}{.status.loadBalancer.ingress[0].ip}{"\n"}'
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-10-13.png>)
 
 > **If EXTERNAL-IP stays `<pending>` forever** — legitimate result on a local
 > build. Use `kubectl port-forward svc/usms-gateway 8080:80` to prove the
 > Service works, and record the `<pending>` state honestly.
 
-📸 **Screenshot Step 15.1** – *`kubectl apply` + `kubectl get svc usms-gateway -o wide`*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 15.2** – *watch output: `<pending>` → address (or stayed `<pending>`)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 15.3** – *the one-line `type/clusterIP/nodePort/external` proof*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
 ---
 
 <a name="step-16"></a>
-## Step 16 – Rung 4: Ingress
+## Step 16 - Rung 4: Ingress
 
 **Is there a controller?**
 
@@ -1331,8 +1211,9 @@ kubectl get svc usms-gateway \
 kubectl get ingressclass 2>/dev/null || echo "no IngressClass registered"
 kubectl get pods -A | grep -Ei 'traefik|ingress|nginx-controller' || echo "no ingress controller pod found"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-11-51.png>)
 
-**Manifest — `manifests/lab-08/60-ingress.yaml`:**
+**Manifest - `manifests/lab-08/60-ingress.yaml`:**
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -1382,6 +1263,7 @@ kubectl apply -f manifests/lab-08/60-ingress.yaml
 kubectl get ingress
 kubectl describe ingress usms-portal-ingress | tail -20
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-12-48.png>)
 
 **Exercise the routes:**
 
@@ -1392,6 +1274,7 @@ for P in / /enrolment/ /results/ ; do
   echo
 done
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-13-03.png>)
 
 **In-cluster fallback:**
 
@@ -1408,6 +1291,7 @@ else
   echo "Record it. The Ingress is a valid, stored, correct object with nothing acting on it."
 fi
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-13-32.png>)
 
 ### Annotation ↔ Lab 05 `elbv2` mapping
 
@@ -1418,21 +1302,6 @@ fi
 | `aws elbv2 create-listener` | `alb.ingress.kubernetes.io/listen-ports` |
 | `aws elbv2 create-rule --priority 10` | `spec.rules[].http.paths[]` |
 | ECS register/deregister targets | controller watches `Endpoints` |
-
-📸 **Screenshot Step 16.1** – *IngressClass / controller check*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 16.2** – *`kubectl get ingress` + `describe ingress` output*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 16.3** – *curl to `/`, `/enrolment/`, `/results/` through the Ingress*
-```
-[ SPACE FOR SCREENSHOT ]
-```
 
 **Checkpoint 6**
 ```
@@ -1449,7 +1318,7 @@ Exposure ladder, complete
 ---
 
 <a name="step-17"></a>
-## Step 17 – Practical 2 vs Practical 4 Comparison
+## Step 17 - Practical 2 vs Practical 4 Comparison
 
 **Look at both stacks:**
 
@@ -1470,6 +1339,7 @@ echo
 echo "=============== EKS / Ingress / HorizontalPodAutoscaler ==============="
 kubectl get deploy,hpa,svc,ingress,pdb
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-19-09.png>)
 
 **Comparison tables (fill in from the output above), appended to `notes/lab-08-notes.md`:**
 
@@ -1477,55 +1347,43 @@ kubectl get deploy,hpa,svc,ingress,pdb
 
 | Question | ECS + Application Auto Scaling | Kubernetes + HPA |
 |---|---|---|
-| What integer is written? | | |
-| Who writes it? | | |
-| Where does that thing run? | | |
-| Where does the metric come from? | | |
-| What does "50% CPU" mean — 50% of what? | | |
-| How is scale-in slowed down? | | |
-| What happens with no capacity for the new instance/pod? | | |
-| What creates the alarms, if anything? | | |
+| What integer is written? | ECS service `desiredCount` | Deployment `spec.replicas` (through the `scale` subresource) |
+| Who writes it? | Application Auto Scaling, triggered by CloudWatch alarms | The HPA controller (in `kube-controller-manager`) |
+| Where does that thing run? | Outside the workload, in AWS's regional control plane | Inside the cluster's control plane (managed by EKS, but part of the cluster) |
+| Where does the metric come from? | CloudWatch `ECSServiceAverageCPUUtilization`, published by ECS | metrics-server through the `metrics.k8s.io` API (kubelet/cAdvisor) |
+| What does "50% CPU" mean — 50% of what? | Average task CPU as a share of the CPU units reserved in the task definition | 50% of each container's CPU **request** (50m, so 25m average), not of the node or the limit |
+| How is scale-in slowed down? | `ScaleInCooldown: 300` plus the low alarm needing many datapoints | `behavior.scaleDown.stabilizationWindowSeconds: 300` and a policy of at most 1 pod per 60s |
+| What happens with no capacity for the new instance/pod? | Fargate provisions per task (may hit account quota); EC2 launch type fails placement unless a capacity provider grows the ASG | The pod stays `Pending` (`FailedScheduling`) until the Cluster Autoscaler/Karpenter or a manual node group change adds a node |
+| What creates the alarms, if anything? | The target-tracking policy creates and owns two CloudWatch alarms (`TargetTracking-…-AlarmHigh/AlarmLow`) | Nothing; there are no alarms, the HPA polls metrics every 15s itself |
 
 #### Exposure
 
 | Question | ECS + ALB (Lab 05) | Kubernetes + Ingress (Step 16) |
 |---|---|---|
-| How many AWS objects created by hand? | | |
-| Target type, and why? | | |
-| How are targets registered / deregistered? | | |
-| How are competing routing rules disambiguated? | | |
-| What changes to move to another cloud? | | |
-| Cost of exposing ten services? | | |
+| How many AWS objects created by hand? | Four or more: ALB, target group, listener, rule (plus its security group) | Zero; the AWS Load Balancer Controller creates the ALB, target groups, listener and rules from one Ingress |
+| Target type, and why? | `ip`: Fargate tasks use `awsvpc` and have their own ENI, so there is no instance to register | `ip` (annotation): VPC CNI gives pods real VPC IPs, so the ALB sends straight to the pod and skips the NodePort hop |
+| How are targets registered / deregistered? | The ECS service registers task IPs on start and deregisters on stop (deregistration delay 30s) | The controller watches Endpoints/EndpointSlices and syncs the target group as pods become ready or go away |
+| How are competing routing rules disambiguated? | Explicit numeric `--priority` (e.g. 10); lowest number is evaluated first | Path specificity: the longest matching `Prefix` wins (`/enrolment` beats `/`), and `Exact` beats `Prefix`; the controller turns this into ALB priorities |
+| What changes to move to another cloud? | Everything; the `elbv2` calls are AWS-only and must be rewritten | `spec.rules` stays; only the `ingressClassName` and the `alb.ingress.kubernetes.io/*` annotations change |
+| Cost of exposing ten services? | One ALB with ten target groups and ten hand-written rules (or ten ALBs if done naively) | One Ingress (or an IngressGroup) gives one ALB with ten rules; ten `LoadBalancer` Services would mean ten NLBs |
 
 **Two paragraphs (write in `notes/lab-08-notes.md`):**
 
 1. *If the AWS control plane has a bad afternoon, what happens to each of the
    two scaling arrangements, and which can I still debug?*
-   ```
-   [ WRITE YOUR PARAGRAPH HERE ]
-   ```
+   > **ECS + Application Auto Scaling:** every part of the scaling loop lives in the AWS regional control plane: the CloudWatch metric, the two target-tracking alarms, Application Auto Scaling, and the ECS API that writes `desiredCount`. If that has a bad afternoon, the running tasks keep serving (the data plane is separate), but scaling is frozen at the current count. I can only debug through the same AWS APIs and console that are failing, so I have very little visibility.
+   >
+   > **EKS + HPA:** the HPA runs in the cluster's own control plane and reads from metrics-server inside the cluster, so it does not depend on CloudWatch or Application Auto Scaling. If only those services are degraded, pod scaling keeps working up to the capacity of the existing nodes. Adding nodes (`update-nodegroup-config`, ASG, EC2) still needs AWS, so new pods would sit `Pending`. If the EKS control plane itself is down, the HPA and `kubectl` stop too, but pods and kube-proxy keep serving. Overall the Kubernetes arrangement is the one I can still debug (`kubectl describe hpa`, events, `kubectl top`), as long as the API server is reachable.
 
 2. *For USMS specifically — one small team, one region, quiet for eight
    months and very busy for two — which would I choose, and what is the
    strongest argument against my own choice?*
-   ```
-   [ WRITE YOUR PARAGRAPH HERE ]
-   ```
-
-📸 **Screenshot Step 17.1** – *ECS side output (describe-services, scalable-targets, scaling-policies)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 17.2** – *EKS side output (`kubectl get deploy,hpa,svc,ingress,pdb`)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+   > For USMS I would choose **ECS (on Fargate) with Application Auto Scaling**. A small team in one region gains nothing from running a cluster, node groups, metrics-server, a Cluster Autoscaler and an ingress controller. ECS gives target tracking, ALB integration and no nodes to patch. In the eight quiet months it costs only the running tasks, with no EKS control-plane fee. The strongest argument against my choice is reaction speed in the two busy months. Target tracking works on one-minute CloudWatch metrics and needs several alarm datapoints, so scale-out takes minutes. The HPA re-evaluates every 15 seconds, and its `behavior` block lets me double the pods every 15 seconds. That difference matters on enrolment day, when the spike arrives all at once.
 
 ---
 
 <a name="step-18"></a>
-## Step 18 – Persistence Check
+## Step 18 - Persistence Check
 
 **Record the truth before restart:**
 
@@ -1540,6 +1398,7 @@ kubectl get deploy,hpa,svc,ingress,pdb
     --query 'nodegroup.scalingConfig' --output text 2>/dev/null || echo "nodegroup: Path B"
 } | tee outputs/lab-08-before-restart.txt
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-20-43.png>)
 
 **Restart the emulator:**
 
@@ -1551,6 +1410,7 @@ sleep 30
 kubectl cluster-info || { echo "re-establishing kubeconfig"; aws eks update-kubeconfig --name "$USMS_EKS_CLUSTER" --alias usms-eks; }
 kubectl config set-context --current --namespace=usms
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-23-05.png>)
 
 **Read it back and diff:**
 
@@ -1572,20 +1432,8 @@ diff <(grep -v '^===' outputs/lab-08-before-restart.txt) \
   || echo "differences above - read them before deciding whether they matter"
 ```
 
-📸 **Screenshot Step 18.1** – *`outputs/lab-08-before-restart.txt` content*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-23-34.png>)
 
-📸 **Screenshot Step 18.2** – *`outputs/lab-08-after-restart.txt` content*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 18.3** – *`diff` result — "PERSISTENCE PROVEN" (or explained differences)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
 
 **Checkpoint 7**
 ```
@@ -1602,7 +1450,7 @@ PERSISTENCE PROVEN
 ---
 
 <a name="step-19"></a>
-## Step 19 – Write configs/lab-08.env
+## Step 19 - Write configs/lab-08.env
 
 ```bash
 cat > configs/lab-08.env << EOF
@@ -1649,6 +1497,7 @@ EOF
 
 grep -n 'export .*=$\|None' configs/lab-08.env || echo "all values populated"
 ```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-25-05.png>)
 
 **Verify:**
 
@@ -1661,20 +1510,11 @@ grep -c '^export' configs/lab-08.env
 
 **Expected:** `hpa: 2..8 at 50% cpu, scale-in window 300s`, `nodeport: 30080  gateway: LoadBalancer`, count = `19`.
 
-📸 **Screenshot Step 19.1** – *`configs/lab-08.env` populated (values check)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 19.2** – *verify output (hpa/nodeport summary + export count = 19)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-25-22.png>)
 ---
 
 <a name="step-20"></a>
-## Step 20 – Commit Work
+## Step 20 - Commit Work
 
 ```bash
 git status --short
@@ -1711,21 +1551,6 @@ git commit -m "Lab 08: EKS scaling and service exposure
 git log --oneline -2
 git show --stat --oneline HEAD | head -20
 git ls-files | grep -c '^outputs/'
-```
-
-📸 **Screenshot Step 20.1** – *`git status --short` before add (nothing under `outputs/` listed)*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 20.2** – *`git commit` output*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot Step 20.3** – *`git log --oneline -2` + `git show --stat` showing the commit*
-```
-[ SPACE FOR SCREENSHOT ]
 ```
 
 **Checkpoint 8**
@@ -1848,10 +1673,7 @@ chmod +x scripts/utilities/verify-lab-08.sh
 (the `_lb_ports_` tag and node group `maxSize` checks are expected to fail
 on Path B).
 
-📸 **Screenshot 25.1** – *`verify-lab-08.sh` full output with final PASS/FAIL line*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-31-43.png>)
 
 ### Smoke test
 
@@ -1863,381 +1685,25 @@ kubectl run usms-smoke --rm -it --restart=Never --image=busybox:1.36 -- sh -c '
 
 kubectl get hpa,pdb,svc,ingress
 ```
-
-📸 **Screenshot 25.2** – *smoke test output*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+![alt text](<../../screenshots/Screenshot from 2026-11-09 11-32-04.png>)
 
 ---
 
 ## 26. Independent Exercises
 
-> Full write-ups belong in `labs/lab-08-eks-scaling/exercises.md`. Summaries
-> and evidence pointers go here.
-
-### Exercise 1 – Basic: a second autoscaler for `usms-results`
-
-**Requirements:** min 2, max 6, target 60% CPU, scale-in window 180s,
-scale-up policy adding at most 2 pods per 30s.
-
-**`manifests/lab-08/11-hpa-results.yaml`:**
-
-```yaml
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: usms-results-hpa
-  namespace: usms
-  labels:
-    app: usms-results
-    project: usms
-    lab: "05b"
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: usms-results
-  minReplicas: 2
-  maxReplicas: 6
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 60
-  behavior:
-    scaleUp:
-      stabilizationWindowSeconds: 0
-      selectPolicy: Max
-      policies:
-        - type: Pods
-          value: 2
-          periodSeconds: 30
-    scaleDown:
-      stabilizationWindowSeconds: 180
-      selectPolicy: Min
-      policies:
-        - type: Pods
-          value: 1
-          periodSeconds: 60
-```
-
-```bash
-kubectl get deploy usms-results -o jsonpath='{.spec.template.spec.containers[0].resources.requests}'; echo
-kubectl apply --dry-run=client -f manifests/lab-08/11-hpa-results.yaml
-kubectl apply -f manifests/lab-08/11-hpa-results.yaml
-kubectl get hpa
-```
-
-> **Why 60% for a read-mostly service, vs 50% for enrolment?**
-> ```
-> [ WRITE YOUR ONE-SENTENCE ANSWER HERE ]
-> ```
-
-📸 **Screenshot 26.1.1** – *`kubectl get hpa` showing both HPAs*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
----
-
-### Exercise 2 – Intermediate: make the gateway drainable
-
-**Requirements:** `usms-gateway-pdb` (`minAvailable: 1`, unchanged) must allow
-at least 1 disruption; do this by spreading/scaling the gateway, not by
-weakening the PDB.
-
-```bash
-kubectl scale deployment/usms-gateway --replicas=2
-kubectl rollout status deployment/usms-gateway --timeout=120s
-kubectl get pdb usms-gateway-pdb
-kubectl get pods -l app=usms-gateway -o wide
-```
-
-**Update the manifest so the repository matches the cluster, then confirm
-no drift:**
-
-```bash
-sed -i.bak 's/^  replicas: 1$/  replicas: 2/' manifests/lab-07/40-gateway.yaml
-kubectl diff -f manifests/lab-07/40-gateway.yaml || true
-rm -f manifests/lab-07/*.bak
-```
-
-📸 **Screenshot 26.2.1** – *`kubectl get pdb` showing ALLOWED DISRUPTIONS ≥ 1*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot 26.2.2** – *`kubectl get pods -o wide` showing gateway pod node placement*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot 26.2.3** – *`kubectl diff` showing no difference*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-> **If the cluster has only one node:**
-> ```
-> [ STATE WHAT YOU WOULD HAVE DONE INSTEAD ]
-> ```
-
----
-
-### Exercise 3 – Problem solving: the autoscaler that will not act
-
-**Given manifest (apply exactly as-is):**
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: usms-reports
-  namespace: usms
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: usms-reports
-  template:
-    metadata:
-      labels:
-        app: usms-reports
-    spec:
-      containers:
-        - name: reports
-          image: nginx:1.27-alpine
-          ports:
-            - name: http
-              containerPort: 80
-          resources:
-            limits:
-              cpu: "200m"
-              memory: "128Mi"
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: usms-reports-hpa
-  namespace: usms
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: usms-reports
-  minReplicas: 4
-  maxReplicas: 4
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 70
-```
-
-```bash
-kubectl apply -f - << 'EOF'
-# (paste the manifest above)
-EOF
-
-kubectl get hpa usms-reports-hpa
-kubectl describe hpa usms-reports-hpa | sed -n '/Conditions/,/Events/p'
-kubectl get deploy usms-reports -o jsonpath='{.spec.template.spec.containers[0].resources.requests}'; echo
-```
-
-**Diagnosis:**
-
-| Fault | Evidence command | Effect | Fix (single field) |
-|---|---|---|---|
-| No CPU **request** declared (only a limit) | `describe hpa` → `FailedGetResourceMetric` / `missing request for cpu` | HPA reports `<unknown>`, never computes | Add `resources.requests.cpu` to the container |
-| `minReplicas == maxReplicas == 4` | `get hpa` → `MINPODS`/`MAXPODS` both 4 | HPA has no room to move even with metrics | Raise `maxReplicas` above `minReplicas` |
-
-```bash
-kubectl set resources deployment/usms-reports --requests=cpu=50m
-kubectl patch hpa usms-reports-hpa --type=merge -p '{"spec":{"maxReplicas":8}}'
-kubectl get hpa usms-reports-hpa
-```
-
-**Cleanup:**
-
-```bash
-kubectl delete deployment,hpa usms-reports usms-reports-hpa --ignore-not-found
-```
-
-📸 **Screenshot 26.3.1** – *`describe hpa` Conditions block showing both faults*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot 26.3.2** – *HPA reporting a percentage after both fixes*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
----
-
-### Exercise 4 – Challenge: expose the results service properly
-
-**Brief:** Reachable at a stable address, normal HTTP port, its own path, no
-second `LoadBalancer` Service, no second load balancer cost.
-
-**Design (prose, ~half a page) — write in `labs/lab-08-eks-scaling/exercises.md`:**
-
-```
-[ WRITE YOUR DESIGN HERE — address each of: which rung of the ladder each
-  part sits on; why no second LoadBalancer; the cost implication; the
-  failure mode if the cluster is unavailable; and whether the existing
-  usms-portal-ingress /results rule is the answer, a starting point, or
-  the wrong shape entirely. ]
-```
-
-📸 **Screenshot 26.4.1** – *any manifest/output you could demonstrate for this design*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
----
-
-### Exercise 5 – Integration: artefacts for Lab 10
-
-**Part 1 — `outputs/lab-08-scaling-evidence.json`:**
-
-```bash
-python3 - << 'PY'
-import json, subprocess, datetime
-
-def kj(args):
-    out = subprocess.run(["kubectl"] + args + ["-o", "json"], capture_output=True, text=True).stdout
-    return json.loads(out) if out.strip() else None
-
-def aj(args):
-    out = subprocess.run(["aws"] + args + ["--output", "json"], capture_output=True, text=True).stdout
-    return json.loads(out) if out.strip() else None
-
-hpa = kj(["get", "hpa", "usms-enrolment-hpa", "-n", "usms"])
-deploy = kj(["get", "deploy", "usms-enrolment", "-n", "usms"])
-nodegroup = aj(["eks", "describe-nodegroup", "--cluster-name", "usms-eks-cluster",
-                "--nodegroup-name", "usms-eks-nodes"])
-
-evidence = {
-    "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
-    "hpa_spec": hpa["spec"] if hpa else "UNAVAILABLE",
-    "hpa_status": hpa["status"] if hpa else "UNAVAILABLE",
-    "deployment_replicas": deploy["status"].get("replicas") if deploy else "UNAVAILABLE",
-    "nodegroup_scaling_config": nodegroup["nodegroup"]["scalingConfig"] if nodegroup else "UNAVAILABLE (Path B)",
-}
-
-with open("outputs/lab-08-scaling-evidence.json", "w") as f:
-    json.dump(evidence, f, indent=2)
-
-print("written outputs/lab-08-scaling-evidence.json")
-PY
-
-python3 -m json.tool outputs/lab-08-scaling-evidence.json > /dev/null && echo "valid JSON"
-```
-
-**Part 2 — `outputs/lab-08-lab06-readiness.txt`:**
-
-```bash
-POLICY_ARN=$(aws iam list-policies --scope Local \
-  --query "Policies[?PolicyName=='USMSStudentDataReadWrite'].Arn | [0]" --output text)
-
-{
-  echo "=== Lab 10 readiness, generated $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
-  echo "Policy ARN: $POLICY_ARN"
-  echo "--- Roles carrying it ---"
-  aws iam list-entities-for-policy --policy-arn "$POLICY_ARN" --query 'PolicyRoles[].RoleName' --output text
-  echo "--- Bucket named in the Resource field ---"
-  aws iam get-policy-version \
-    --policy-arn "$POLICY_ARN" \
-    --version-id "$(aws iam get-policy --policy-arn "$POLICY_ARN" --query 'Policy.DefaultVersionId' --output text)" \
-    --query 'PolicyVersion.Document.Statement[0].Resource' --output text
-  echo "--- Does the bucket exist yet? ---"
-  aws s3api head-bucket --bucket usms-student-data 2>&1 || echo "not yet created (expected before Lab 10)"
-  echo "--- ServiceAccount that would carry the IRSA annotation ---"
-  kubectl get sa usms-enrolment-sa -n usms -o yaml 2>/dev/null | grep -A2 annotations || echo "no IRSA annotation present yet"
-  echo "would be: eks.amazonaws.com/role-arn: <ARN of a role trusting the EKS OIDC provider>"
-} | tee outputs/lab-08-lab06-readiness.txt
-```
-
-**Part 3 — "ECS or Kubernetes for USMS" (≤400 words, appended to `notes/lab-08-notes.md`, citing ≥3 specific observations):**
-
-```
-[ WRITE YOUR ARGUMENT HERE, IN notes/lab-08-notes.md ]
-```
-
-📸 **Screenshot 26.5.1** – *`python3 -m json.tool` validating the evidence JSON*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot 26.5.2** – *`outputs/lab-08-lab06-readiness.txt` content*
-```
-[ SPACE FOR SCREENSHOT ]
-```
+The five independent exercises are in [exercise.md](exercise.md).
 
 ---
 
 ## 27. Review Questions
 
-Answered in prose in `notes/lab-08-notes.md`.
-
-1. **Correct the "50% node CPU" misconception**, and explain the effect of
-   halving the CPU request without changing the HPA.
-   ```
-   [ ANSWER ]
-   ```
-
-2. **10× traffic plan** using the four dimensions from Step 3, with checks
-   between each step and the one dimension that cannot change in place.
-   ```
-   [ ANSWER ]
-   ```
-
-3. **Two consequences** of Application Auto Scaling running outside the
-   workload vs the HPA running inside the cluster (at least one about
-   failure).
-   ```
-   [ ANSWER ]
-   ```
-
-4. **Pending pods after an HPA scale-out** — explain with the two-control-loop
-   picture, name the resolving component, and say why lowering the CPU
-   request is the wrong fix.
-   ```
-   [ ANSWER ]
-   ```
-
-5. **NodePort vs LoadBalancer, or Service vs Ingress** — pick one pair,
-   explain the distinction, and give a requirement the wrong choice would
-   fail.
-   ```
-   [ ANSWER ]
-   ```
-
-6. **`/enrolment` reachable both via the gateway and directly via Ingress** —
-   argue for one design and say what you would delete.
-   ```
-   [ ANSWER ]
-   ```
-
-7. **`kubectl delete pod` bypassing a PDB** — why this is correct, voluntary
-   vs involuntary disruption, and a scenario where the PDB would matter.
-   ```
-   [ ANSWER ]
-   ```
+The review questions and answers are in [notes/lab-08-notes.md](notes/lab-08-notes.md#review-questions).
 
 ---
 
 ## 28. Cleanup
 
-> ⚠️ Run only the *temporary-instrument* cleanup now. Do **not** run
-> `lab-08-cleanup.sh` or any earlier lab's cleanup script — those are for
-> end of course only.
+
 
 ```bash
 kubectl delete deployment usms-loadgen --ignore-not-found
@@ -2297,59 +1763,50 @@ chmod +x scripts/cleanup/lab-08-cleanup.sh
 bash -n scripts/cleanup/lab-08-cleanup.sh && echo "cleanup script: valid bash syntax"
 ```
 
-📸 **Screenshot 28.1** – *`kubectl get all` after temporary-instrument cleanup*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
-📸 **Screenshot 28.2** – *cleanup script syntax check passing*
-```
-[ SPACE FOR SCREENSHOT ]
-```
-
 ---
 
 ## 29. Reflection
 
-```
-[ WRITE YOUR OWN REFLECTION HERE — e.g. what surprised you about the
-  scale-in stabilisation window, what the Ingress/ALB annotation mapping
-  taught you about portability, and anything you'd do differently. ]
-```
+The biggest shift for me was seeing that "scaling" is really just one integer. In Lab 06, Application Auto Scaling wrote `desiredCount` from outside ECS; here the HPA writes `replicas` from inside the cluster, and `kubectl scale` writes the same field by hand. Understanding that made HPA behaviour much easier to reason about, especially the fact that "50%" means 50% of the CPU *request* (25m of 50m), not of the node.
+
+The 300-second scale-down stabilisation window was a good lesson in deliberate slowness. Scale-up is meant to be fast and scale-in slow, so that a short dip in traffic does not remove pods that are needed again a minute later. It plays the same role as `ScaleInCooldown: 300` in Lab 06.
+
+The Ingress and `elbv2` mapping showed me what portability does and does not mean. The `spec.rules` paths are portable, but the `alb.ingress.kubernetes.io/*` annotations tie the object to AWS, and without a controller the Ingress is a correct object that nothing acts on. "Declare it in one place" only works if something is installed to make it real.
+
+Next time I would update the manifests in `manifests/` *as* I change the cluster, not afterwards, to avoid the drift from Step 5. I would also scale the gateway to two replicas before adding its PDB, because a `minAvailable: 1` budget on a single pod silently blocks every drain.
 
 ---
 
 ## Lab Assessment Checklist
 
-- [ ] `verify-lab-07.sh` run before starting; result recorded
-- [ ] CPU request and `_lb_ports_` tag confirmed
-- [ ] Baseline captured to `outputs/lab-08-baseline.txt`
-- [ ] Four dimensions of scaling named; "your turn" plan written
-- [ ] `kubectl scale` used; drift created and resolved
-- [ ] QoS classes read; Guaranteed experiment done and reverted
-- [ ] `usms-enrolment-hpa` created, `autoscaling/v2`, with `behavior` block
-- [ ] Load generated; replicas observed moving (or `<unknown>` diagnosed)
-- [ ] 300s scale-in window observed
-- [ ] Node group rescaled from the AWS side (Path A)
-- [ ] Cluster Autoscaler / Karpenter compared in prose
-- [ ] `nodeSelector` applied; enforcement proven
-- [ ] Both PodDisruptionBudgets created; eviction vs delete demonstrated
-- [ ] `manifests/lab-07/20-enrolment.yaml` updated with the nodeSelector
-- [ ] ClusterIP shown unroutable; port-forward used
-- [ ] `usms-results-np` NodePort created and proven reachable on every node
-- [ ] `usms-gateway` promoted to LoadBalancer with full manifest re-apply
-- [ ] `usms-portal-ingress` created with three prefix paths
-- [ ] Annotation-to-`elbv2` mapping written down
-- [ ] `verify-lab-08.sh` written and run
-- [ ] PERSISTENCE PROVEN after Floci restart
-- [ ] `configs/lab-08.env` generated with 19 exports
-- [ ] `git status --short` inspected before `git add`; nothing under `outputs/` staged
-- [ ] Work committed
-- [ ] Section 27 review questions answered in prose
-- [ ] Step 17 comparison tables filled in
-- [ ] Five exercises attempted; Exercise 5 outputs present
-- [ ] `usms-loadgen` deleted at the end
+- [x] `verify-lab-07.sh` run before starting; result recorded
+- [x] CPU request and `_lb_ports_` tag confirmed
+- [x] Baseline captured to `outputs/lab-08-baseline.txt`
+- [x] Four dimensions of scaling named; "your turn" plan written
+- [x] `kubectl scale` used; drift created and resolved
+- [x] QoS classes read; Guaranteed experiment done and reverted
+- [x] `usms-enrolment-hpa` created, `autoscaling/v2`, with `behavior` block
+- [x] Load generated; replicas observed moving (or `<unknown>` diagnosed)
+- [x] 300s scale-in window observed
+- [x] Node group rescaled from the AWS side (Path A)
+- [x] Cluster Autoscaler / Karpenter compared in prose
+- [x] `nodeSelector` applied; enforcement proven
+- [x] Both PodDisruptionBudgets created; eviction vs delete demonstrated
+- [x] `manifests/lab-07/20-enrolment.yaml` updated with the nodeSelector
+- [x] ClusterIP shown unroutable; port-forward used
+- [x] `usms-results-np` NodePort created and proven reachable on every node
+- [x] `usms-gateway` promoted to LoadBalancer with full manifest re-apply
+- [x] `usms-portal-ingress` created with three prefix paths
+- [x] Annotation-to-`elbv2` mapping written down
+- [x] `verify-lab-08.sh` written and run
+- [x] PERSISTENCE PROVEN after Floci restart
+- [x] `configs/lab-08.env` generated with 19 exports
+- [x] `git status --short` inspected before `git add`; nothing under `outputs/` staged
+- [x] Work committed
+- [x] Section 27 review questions answered in prose
+- [x] Step 17 comparison tables filled in
+- [x] Five exercises attempted; Exercise 5 outputs present
+- [x] `usms-loadgen` deleted at the end
 
 ---
 
-*End of report.*
