@@ -1,0 +1,13 @@
+[
+  {
+    "IpProtocol": "tcp",
+    "FromPort": 443,
+    "ToPort": 443,
+    "IpRanges": [
+      {
+        "CidrIp": "0.0.0.0/0",
+        "Description": "HTTPS out for the image pull, the awslogs driver and S3 - no prefix list on this build"
+      }
+    ]
+  }
+]

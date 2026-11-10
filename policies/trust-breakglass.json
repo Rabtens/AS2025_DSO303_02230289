@@ -1,0 +1,16 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AdminOnlyWithMfaAndTheExternalId",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::000000000000:user/usms-admin-01" },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "Bool":          { "aws:MultiFactorAuthPresent": "true" },
+        "NumericLessThan": { "aws:MultiFactorAuthAge": "900" },
+        "StringEquals":  { "sts:ExternalId": "usms-breakglass-2026" }
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# USMS IAM audit - formally ACCEPTED findings.
+# Read by scripts/utilities/usms-iam-audit.sh. A finding listed here is reported as
+# ACCEPTED instead of HIGH/MED, and stops counting towards the exit code - until its
+# review-by date passes, when it becomes a HIGH again ("acceptance EXPIRED").
+#
+# Format (pipe-separated, one per line):
+#   role | text the finding starts with | owner | review-by (YYYY-MM-DD) | reason
+#
+usms-ec2-app-role | trust policy: service principal ec2.amazonaws.com | usms-admin-01 | 2027-05-10 | EC2 does not send aws:SourceArn/aws:SourceAccount when it assumes an instance-profile role, so a condition would block the instance. Mitigated: no user, group or role is granted iam:PassRole on it (the only PassRole grant is usms-deploy-role -> three ECS roles, ecs-tasks only). USMSDeployBase also explicitly denies PassRole to ec2.amazonaws.com.
+usms-eks-node-role | trust policy: service principal ec2.amazonaws.com | usms-admin-01 | 2027-05-10 | Same as usms-ec2-app-role: EKS nodes are EC2 instances and EC2 sends no source keys. Mitigated: no user, group or role is granted iam:PassRole on it (the only PassRole grant is usms-deploy-role -> three ECS roles, ecs-tasks only).
+usms-lambda-exec-role | trust policy: service principal lambda.amazonaws.com | usms-admin-01 | 2027-05-10 | Lambda does not supply aws:SourceArn when assuming an execution role. Mitigated: no user, group or role is granted iam:PassRole on it (the only PassRole grant is usms-deploy-role -> three ECS roles, ecs-tasks only).
+usms-eks-cluster-role | trust policy: service principal eks.amazonaws.com | usms-admin-01 | 2027-05-10 | EKS does not document confused-deputy condition keys for the cluster role. Mitigated: no user, group or role is granted iam:PassRole on it (the only PassRole grant is usms-deploy-role -> three ECS roles, ecs-tasks only). Re-check when AWS documents support.
+AWSServiceRoleForEcsApplicationAutoscaling | trust policy: service principal ecs.application-autoscaling.amazonaws.com | usms-admin-01 | 2027-05-10 | Service-linked role: AWS owns and maintains the trust policy; it cannot be edited.
+AWSServiceRoleForEcsApplicationAutoscaling | no permissions boundary | usms-admin-01 | 2027-05-10 | Service-linked roles cannot carry a permissions boundary.

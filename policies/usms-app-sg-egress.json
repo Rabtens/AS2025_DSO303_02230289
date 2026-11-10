@@ -1,0 +1,34 @@
+[
+  {
+    "IpProtocol": "tcp", "FromPort": 443, "ToPort": 443,
+    "PrefixListIds": [
+      { "PrefixListId": "pl-63a5400a", "Description": "HTTPS to S3 through the usms-s3-endpoint gateway endpoint" }
+    ]
+  },
+  {
+    "IpProtocol": "tcp", "FromPort": 443, "ToPort": 443,
+    "IpRanges": [
+      { "CidrIp": "0.0.0.0/0", "Description": "HTTPS to AWS service endpoints incl. STS - no interface endpoints exist in usms-vpc" }
+    ]
+  },
+  {
+    "IpProtocol": "tcp", "FromPort": 80, "ToPort": 80,
+    "UserIdGroupPairs": [
+      { "GroupId": "sg-4fd856db37444e530", "Description": "HTTP to the USMS load balancer" }
+    ]
+  },
+  {
+    "IpProtocol": "tcp", "FromPort": 5432, "ToPort": 5432,
+    "UserIdGroupPairs": [
+      { "GroupId": "sg-1b3bee73c661e8abd", "Description": "PostgreSQL to the data tier" }
+    ]
+  },
+  {
+    "IpProtocol": "udp", "FromPort": 53, "ToPort": 53,
+    "IpRanges": [ { "CidrIp": "10.0.0.2/32", "Description": "DNS to the VPC resolver (VPC base + 2)" } ]
+  },
+  {
+    "IpProtocol": "tcp", "FromPort": 53, "ToPort": 53,
+    "IpRanges": [ { "CidrIp": "10.0.0.2/32", "Description": "DNS over TCP to the VPC resolver (large responses)" } ]
+  }
+]
