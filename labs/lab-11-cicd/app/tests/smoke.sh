@@ -16,7 +16,13 @@ t "release placeholder was replaced"    "! grep -q '__RELEASE__' dist/index.html
 t "build-time placeholder was replaced" "! grep -q '__BUILT_AT__' dist/index.html"
 t "health endpoint says ok"             "grep -q '^ok$' dist/healthz.html"
 t "build metadata is valid JSON"        "python3 -m json.tool dist/build-metadata.json"
-t "container name matches the task def" "grep -q '\"container\": \"enrolment-api\"' config/service.json"
+t "container name matches the task def" "python3 -c 'import json; assert json.load(open(\"config/service.json\"))[\"container\"] == \"enrolment-api\"'"
+t "ECS image definitions match the build" 'python3 -c "
+import json, sys
+config = json.load(open(\"config/service.json\"))
+definitions = json.load(open(\"dist/imagedefinitions.json\"))
+assert definitions == [{\"name\": config[\"container\"], \"imageUri\": sys.argv[1]}]
+" "${IMAGE_URI:-public.ecr.aws/nginx/nginx:stable-alpine}"'
 
 echo "smoke tests failed: $FAIL"
 [ "$FAIL" -eq 0 ]

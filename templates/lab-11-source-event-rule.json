@@ -1,0 +1,6 @@
+{
+  "Name": "usms-enrolment-source-upload",
+  "Description": "Start the enrolment pipeline when its source ZIP is written",
+  "State": "ENABLED",
+  "EventPattern": "{\"source\":[\"aws.s3\"],\"detail-type\":[\"Object Created\"],\"detail\":{\"bucket\":{\"name\":[\"usms-pipeline-artifacts\"]},\"object\":{\"key\":[\"source/usms-enrolment-src.zip\"],\"version-id\":[{\"exists\":true}]}}}"
+}

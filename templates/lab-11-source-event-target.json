@@ -1,0 +1,8 @@
+{
+  "Rule": "usms-enrolment-source-upload",
+  "Targets": [{
+    "Id": "StartEnrolmentPipeline",
+    "Arn": "arn:aws:codepipeline:us-east-1:000000000000:usms-enrolment-pipeline",
+    "RoleArn": "arn:aws:iam::000000000000:role/usms-eventbridge-start-pipeline"
+  }]
+}

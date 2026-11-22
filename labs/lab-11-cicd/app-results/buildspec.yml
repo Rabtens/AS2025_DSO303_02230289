@@ -1,0 +1,27 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - mkdir -p dist
+      - cp src/index.html dist/index.html
+      - |
+        python3 - <<'PY'
+        import json, os
+        from datetime import datetime, timezone
+        from pathlib import Path
+
+        metadata = {
+            "service": "results",
+            "release": Path("VERSION").read_text().strip(),
+            "builtAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "buildId": os.getenv("CODEBUILD_BUILD_ID", "local"),
+            "sourceVersion": os.getenv("CODEBUILD_RESOLVED_SOURCE_VERSION", "local"),
+        }
+        Path("dist/build-metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
+        PY
+
+artifacts:
+  base-directory: dist
+  files:
+    - '**/*'

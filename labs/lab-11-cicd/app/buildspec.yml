@@ -17,12 +17,15 @@ phases:
     commands:
       - echo "--- pre_build ---"
       - test -f VERSION || { echo "VERSION file is missing"; exit 1; }
-      - python3 -m json.tool config/service.json > /dev/null
       - |
-        grep -q '"container": "enrolment-api"' config/service.json || {
-          echo "config/service.json names the wrong container"
-          exit 1
-        }
+        python3 -c '
+        import json, sys
+        expected = "enrolment-api"
+        with open("config/service.json") as config:
+            actual = json.load(config).get("container")
+        if actual != expected:
+            sys.exit(f"Container mismatch: expected {expected!r}, actual {actual!r}")
+        '
       - echo "configuration validated"
 
   build:
@@ -47,13 +50,32 @@ phases:
         }
         META
       - cp config/service.json "$ARTIFACT_DIR/service.json"
+      - |
+        python3 - "$ARTIFACT_DIR" "${IMAGE_URI:-public.ecr.aws/nginx/nginx:stable-alpine}" <<'PYCODE'
+        import json, sys
+        from pathlib import Path
+
+        container = json.loads(Path("config/service.json").read_text())["container"]
+        output = Path(sys.argv[1]) / "imagedefinitions.json"
+        output.write_text(json.dumps([{"name": container, "imageUri": sys.argv[2]}]) + "\n")
+        PYCODE
 
   post_build:
     commands:
       - echo "--- post_build ---"
-      - bash tests/smoke.sh
+      - |
+        TEST_STATUS=0
+        bash tests/smoke.sh || TEST_STATUS=$?
+        (exit "$TEST_STATUS")
       - ls -l "$ARTIFACT_DIR"
       - cat "$ARTIFACT_DIR/build-metadata.json"
+
+    finally:
+      - |
+        mkdir -p "$ARTIFACT_DIR"
+        printf 'release=%s test_exit_status=%s timestamp=%s\n' \
+          "$(tr -d '[:space:]' < VERSION)" "${TEST_STATUS:-not-run}" \
+          "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$ARTIFACT_DIR/build-summary.txt"
 
 artifacts:
   base-directory: dist
