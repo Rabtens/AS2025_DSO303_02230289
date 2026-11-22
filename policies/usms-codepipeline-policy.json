@@ -1,0 +1,39 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadAndWriteTheArtifactStore",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:PutObject",
+        "s3:GetBucketVersioning",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": [
+        "arn:aws:s3:::usms-pipeline-artifacts",
+        "arn:aws:s3:::usms-pipeline-artifacts/*"
+      ]
+    },
+    {
+      "Sid": "StartAndWatchTheEnrolmentBuildOnly",
+      "Effect": "Allow",
+      "Action": [
+        "codebuild:StartBuild",
+        "codebuild:BatchGetBuilds",
+        "codebuild:StopBuild"
+      ],
+      "Resource": "arn:aws:codebuild:us-east-1:000000000000:project/usms-enrolment-build"
+    },
+    {
+      "Sid": "PassTheBuildRoleAndOnlyToCodeBuild",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::000000000000:role/usms-codebuild-role",
+      "Condition": {
+        "StringEquals": { "iam:PassedToService": "codebuild.amazonaws.com" }
+      }
+    }
+  ]
+}

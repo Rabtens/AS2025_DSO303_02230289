@@ -1,0 +1,41 @@
+{
+  "name": "usms-enrolment-build",
+  "description": "Builds the USMS enrolment service artifact from labs/lab-11-cicd/app",
+  "source": {
+    "type": "S3",
+    "location": "usms-pipeline-artifacts/source/usms-enrolment-src.zip",
+    "buildspec": "buildspec.yml"
+  },
+  "artifacts": {
+    "type": "S3",
+    "location": "usms-pipeline-artifacts",
+    "path": "build",
+    "name": "usms-enrolment-build.zip",
+    "packaging": "ZIP",
+    "namespaceType": "NONE"
+  },
+  "environment": {
+    "type": "LINUX_CONTAINER",
+    "image": "docker.io/library/python:3.12-slim-bookworm",
+    "computeType": "BUILD_GENERAL1_SMALL",
+    "privilegedMode": false,
+    "environmentVariables": [
+      { "name": "USMS_PROJECT", "value": "USMS", "type": "PLAINTEXT" },
+      { "name": "USMS_SERVICE", "value": "enrolment", "type": "PLAINTEXT" }
+    ]
+  },
+  "serviceRole": "",
+  "timeoutInMinutes": 15,
+  "queuedTimeoutInMinutes": 30,
+  "logsConfig": {
+    "cloudWatchLogs": {
+      "status": "ENABLED",
+      "groupName": "/aws/codebuild/usms-enrolment-build"
+    }
+  },
+  "tags": [
+    { "key": "Project", "value": "USMS" },
+    { "key": "Tier", "value": "pipeline" },
+    { "key": "Lab", "value": "11" }
+  ]
+}

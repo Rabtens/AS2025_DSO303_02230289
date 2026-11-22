@@ -1,0 +1,54 @@
+{
+  "pipeline": {
+    "name": "usms-enrolment-pipeline",
+    "roleArn": "arn:aws:iam::000000000000:role/usms-codepipeline-role",
+    "artifactStore": {
+      "type": "S3",
+      "location": "usms-pipeline-artifacts"
+    },
+    "stages": [
+      {
+        "name": "Source",
+        "actions": [
+          {
+            "name": "FetchSource",
+            "actionTypeId": {
+              "category": "Source",
+              "owner": "AWS",
+              "provider": "S3",
+              "version": "1"
+            },
+            "runOrder": 1,
+            "configuration": {
+              "S3Bucket": "usms-pipeline-artifacts",
+              "S3ObjectKey": "source/usms-enrolment-src.zip",
+              "PollForSourceChanges": "false"
+            },
+            "inputArtifacts": [],
+            "outputArtifacts": [ { "name": "SourceOutput" } ]
+          }
+        ]
+      },
+      {
+        "name": "Build",
+        "actions": [
+          {
+            "name": "BuildArtifact",
+            "actionTypeId": {
+              "category": "Build",
+              "owner": "AWS",
+              "provider": "CodeBuild",
+              "version": "1"
+            },
+            "runOrder": 1,
+            "configuration": {
+              "ProjectName": "usms-enrolment-build"
+            },
+            "inputArtifacts": [ { "name": "SourceOutput" } ],
+            "outputArtifacts": [ { "name": "BuildOutput" } ]
+          }
+        ]
+      }
+    ]
+  }
+}

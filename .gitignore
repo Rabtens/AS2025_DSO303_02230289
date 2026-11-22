@@ -32,3 +32,4 @@ Thumbs.db
 .vscode/
 .idea/
 .claude/settings.local.json
+labs/lab-11-cicd/app/dist/
