@@ -1,0 +1,31 @@
+{
+  "Records": [
+    {
+      "cf": {
+        "config": {
+          "distributionDomainName": "d3examplecdn01.cloudfront.net",
+          "distributionId": "EDFDVBD6EXAMPLE",
+          "eventType": "viewer-request",
+          "requestId": "lab06-allow-0001"
+        },
+        "request": {
+          "clientIp": "203.0.113.178",
+          "method": "GET",
+          "uri": "/transcripts/2026/STU-00417.json",
+          "querystring": "",
+          "headers": {
+            "host": [
+              { "key": "Host", "value": "transcripts.usms.example.edu" }
+            ],
+            "user-agent": [
+              { "key": "User-Agent", "value": "curl/8.4.0" }
+            ],
+            "x-usms-student": [
+              { "key": "X-USMS-Student", "value": "STU-00417" }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

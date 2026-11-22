@@ -1,0 +1,43 @@
+{
+  "Records": [
+    {
+      "cf": {
+        "config": {
+          "distributionDomainName": "d3examplecdn01.cloudfront.net",
+          "distributionId": "EDFDVBD6EXAMPLE",
+          "eventType": "origin-response",
+          "requestId": "lab06-origin-0001"
+        },
+        "request": {
+          "clientIp": "203.0.113.178",
+          "method": "GET",
+          "uri": "/transcripts/2026/stu-00417.json",
+          "querystring": "",
+          "headers": {
+            "host": [
+              { "key": "Host", "value": "usms-student-data.s3.us-east-1.amazonaws.com" }
+            ],
+            "x-usms-edge": [
+              { "key": "X-USMS-Edge", "value": "viewer-request-allow;student=stu-00417" }
+            ]
+          }
+        },
+        "response": {
+          "status": "200",
+          "statusDescription": "OK",
+          "headers": {
+            "content-type": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "etag": [
+              { "key": "ETag", "value": "\"9f86d081884c7d659a2feaa0c55ad015\"" }
+            ],
+            "server": [
+              { "key": "Server", "value": "AmazonS3" }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

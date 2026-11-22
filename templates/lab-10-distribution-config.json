@@ -1,0 +1,55 @@
+{
+  "CallerReference": "usms-transcript-cdn-1795346716",
+  "Comment": "usms-transcript-cdn - USMS transcript delivery with edge functions",
+  "Enabled": true,
+  "PriceClass": "PriceClass_All",
+  "DefaultRootObject": "",
+  "Origins": {
+    "Quantity": 1,
+    "Items": [
+      {
+        "Id": "usms-student-data-origin",
+        "DomainName": "usms-student-data.s3.us-east-1.amazonaws.com",
+        "OriginPath": "",
+        "CustomHeaders": { "Quantity": 0 },
+        "S3OriginConfig": { "OriginAccessIdentity": "" }
+      }
+    ]
+  },
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "usms-student-data-origin",
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "Compress": true,
+    "MinTTL": 0,
+    "DefaultTTL": 300,
+    "MaxTTL": 3600,
+    "SmoothStreaming": false,
+    "FieldLevelEncryptionId": "",
+    "TrustedSigners": { "Enabled": false, "Quantity": 0 },
+    "AllowedMethods": {
+      "Quantity": 2,
+      "Items": ["GET", "HEAD"],
+      "CachedMethods": { "Quantity": 2, "Items": ["GET", "HEAD"] }
+    },
+    "ForwardedValues": {
+      "QueryString": false,
+      "Cookies": { "Forward": "none" },
+      "Headers": { "Quantity": 1, "Items": ["x-usms-student"] },
+      "QueryStringCacheKeys": { "Quantity": 0 }
+    },
+    "LambdaFunctionAssociations": {
+      "Quantity": 2,
+      "Items": [
+        {
+          "EventType": "viewer-request",
+          "LambdaFunctionARN": "arn:aws:lambda:us-east-1:000000000000:function:usms-edge-viewer-request:1",
+          "IncludeBody": false
+        },
+        {
+          "EventType": "origin-response",
+          "LambdaFunctionARN": "arn:aws:lambda:us-east-1:000000000000:function:usms-edge-origin-response:2"
+        }
+      ]
+    }
+  }
+}

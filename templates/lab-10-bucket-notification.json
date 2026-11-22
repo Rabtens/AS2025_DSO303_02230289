@@ -1,0 +1,17 @@
+{
+  "LambdaFunctionConfigurations": [
+    {
+      "Id": "usms-transcript-upload",
+      "LambdaFunctionArn": "arn:aws:lambda:us-east-1:000000000000:function:usms-transcript-notifier:live",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            { "Name": "prefix", "Value": "transcripts/" },
+            { "Name": "suffix", "Value": ".json" }
+          ]
+        }
+      }
+    }
+  ]
+}
