@@ -88,6 +88,8 @@ grep -q '^labs/lab-11-cicd/app-results/dist/' .gitignore || \
 ```
 (The `! grep` line is YAML-quoted because a plain scalar may not start with `!` — YAML reads that as a tag.)
 
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 02-08-51.png>)
+
 **2. Project template and project**
 ```bash
 BUILD_ROLE_ARN=$(aws iam get-role --role-name usms-codebuild-role --query 'Role.Arn' --output text)
@@ -144,14 +146,31 @@ aws s3api put-object --bucket usms-pipeline-artifacts \
   --key source/usms-results-src.zip --body outputs/usms-results-src.zip \
   --query 'VersionId' --output text
 
-aws codebuild create-project \
-  --cli-input-json file://templates/lab-11-results-build-project.json \
-  --query 'project.{Name:name,Source:source.type,Role:serviceRole}' --output table
+PROJECT_NAME=$(aws codebuild batch-get-projects --names usms-results-build \
+  --query 'projects[0].name' --output text) && (
+  PROJECT_ACTION=create-project
+  if [ "$PROJECT_NAME" = "usms-results-build" ]; then
+    PROJECT_ACTION=update-project
+  fi
+
+  aws codebuild "$PROJECT_ACTION" \
+    --cli-input-json file://templates/lab-11-results-build-project.json \
+    --query 'project.{Name:name,Source:source.type,Role:serviceRole}' --output table
+)
 ```
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 02-17-03.png>)
 
 **3. Run it standalone and read back**
+
+If Floci reports success without publishing a ZIP, this step runs the buildspec locally from the S3 source version recorded before starting the build. The local ZIP records `buildId: local`.
+
 ```bash
-RES_BUILD=$(aws codebuild start-build --project-name usms-results-build --query 'build.id' --output text)
+(
+BUCKET=usms-pipeline-artifacts
+SOURCE_KEY=source/usms-results-src.zip
+SOURCE_VERSION=$(aws s3api head-object --bucket "$BUCKET" --key "$SOURCE_KEY" \
+  --query VersionId --output text) || exit 1
+RES_BUILD=$(aws codebuild start-build --project-name usms-results-build --query 'build.id' --output text) || exit 1
 echo "$RES_BUILD"
 for i in $(seq 1 40); do
   S=$(aws codebuild batch-get-builds --ids "$RES_BUILD" --query 'builds[0].buildStatus' --output text 2>/dev/null)
@@ -161,14 +180,42 @@ for i in $(seq 1 40); do
   sleep 10
 done
 
-aws s3api list-objects-v2 --bucket usms-pipeline-artifacts --prefix build/ \
-  --query 'Contents[].{Key:Key,Size:Size}' --output table
+if [ "$S" != SUCCEEDED ]; then
+  printf 'Build %s ended polling with status %s\n' "$RES_BUILD" "${S:-unknown}" >&2
+  exit 1
+fi
 
-aws s3api get-object --bucket usms-pipeline-artifacts --key build/usms-results-build.zip \
-  outputs/usms-results-build.zip >/dev/null
-python3 -c 'import zipfile;print(zipfile.ZipFile("outputs/usms-results-build.zip").read("build-metadata.json").decode())'
+ARTIFACT_KEY=build/usms-results-build.zip
+ARTIFACT=$(aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "$ARTIFACT_KEY" \
+  --query "Contents[?Key=='$ARTIFACT_KEY'] | [0].Key" --output text) || exit 1
+mkdir -p outputs || exit 1
+if [ "$ARTIFACT" = "$ARTIFACT_KEY" ]; then
+  RESULT_ZIP=outputs/usms-results-build.zip
+  aws s3api get-object --bucket "$BUCKET" --key "$ARTIFACT_KEY" "$RESULT_ZIP" >/dev/null || exit 1
+else
+  if [ -z "$SOURCE_VERSION" ] || [ "$SOURCE_VERSION" = None ]; then
+    echo "The local fallback requires the versioned S3 source ZIP." >&2
+    exit 1
+  fi
+  echo "Floci did not publish $ARTIFACT_KEY. Building locally from S3 version $SOURCE_VERSION."
+  WORK_DIR=$(mktemp -d) || exit 1
+  trap 'rm -rf "$WORK_DIR"' EXIT
+  aws s3api get-object --bucket "$BUCKET" --key "$SOURCE_KEY" --version-id "$SOURCE_VERSION" \
+    "$WORK_DIR/source.zip" >/dev/null || exit 1
+  python3 -m zipfile -e "$WORK_DIR/source.zip" "$WORK_DIR/app" || exit 1
+  CODEBUILD_BUILD_ID=local CODEBUILD_RESOLVED_SOURCE_VERSION="$SOURCE_VERSION" \
+    ./scripts/utilities/usms-buildspec-run.sh "$WORK_DIR/app" || exit 1
+  RESULT_ZIP=outputs/usms-results-local-build.zip
+  python3 -c 'import shutil,sys; shutil.make_archive(sys.argv[1], "zip", sys.argv[2])' \
+    "${RESULT_ZIP%.zip}" "$WORK_DIR/app/dist" || exit 1
+fi
+printf 'Artifact: %s\n' "$RESULT_ZIP"
+python3 -c 'import sys,zipfile; print(zipfile.ZipFile(sys.argv[1]).read("build-metadata.json").decode())' "$RESULT_ZIP"
+)
 ```
-**Expected:** `"service": "results"` — distinguishable from the enrolment artifact.
+**Expected:** `"service": "results"` - distinguishable from the enrolment artifact.
+
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 02-59-41.png>)
 
 **Does `USMSCodeBuildBase` already permit this build?** *Partly.* The S3 statement covers it (same bucket, `usms-pipeline-artifacts/*`), but the logs statement names **only** `/aws/codebuild/usms-enrolment-build`, so on real AWS the results build could not create or write `/aws/codebuild/usms-results-build` — it works here only because Floci does not enforce IAM. The fix (without a second role) is a policy change adding the results log group; I add it as an inline policy so that `USMSCodeBuildBase` v2 stays free for Lab 12:
 
@@ -196,13 +243,11 @@ aws iam put-role-policy --role-name usms-codebuild-role \
 aws iam list-role-policies --role-name usms-codebuild-role --output table
 ```
 
-> 📸 **Screenshot 36 — Exercise 1: local run, create-project, standalone build SUCCEEDED, results build-metadata.json**
->
-> ![Screenshot 36](screenshots/36-ex1-results-build.png)
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 03-01-08.png>)
 
 ---
 
-### Exercise 2 — Intermediate: a `finally` block and a build report
+### Exercise 2 - Intermediate: a `finally` block and a build report
 
 **Design:** the test's exit code is captured to `/tmp/usms-smoke-rc` and the command still fails the phase if tests fail. The `finally` block (sibling of `commands`) writes `dist/build-summary.txt` with release, tests exit status and timestamp, whether the phase passed or failed. CodeBuild still runs `UPLOAD_ARTIFACTS` after a failed `post_build`, so the summary reaches the artifact. (`finally` does not rescue the build — it only runs.)
 
@@ -296,6 +341,7 @@ python3 -c 'import yaml; d=yaml.safe_load(open("buildspec.yml")); print("finally
 cd "$COURSE_ROOT"
 ./scripts/utilities/usms-buildspec-run.sh labs/lab-11-cicd/app
 ```
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 03-14-02.png>)
 
 **How I tested it locally (the local runner does not implement `finally`):** with PyYAML the runner ignores `finally` entirely; with the minimal parser it would append `finally` to `commands`, so it would only run on success. So I break a test, run the runner (it stops in `post_build`), then execute the `finally` block by hand with the same shell semantics:
 
@@ -319,7 +365,9 @@ cat labs/lab-11-cicd/app/dist/build-summary.txt
 ```
 **Expected:** `release=r5 tests_exit=1 at=...`
 
-**On CodeBuild (Path A) — the real proof.** The project is now `CODEPIPELINE`, and a failed pipeline build publishes no `BuildOutput`, so I use a one-off standalone build with source and artifact overrides on a separate key:
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 03-21-28.png>)
+
+**On CodeBuild (Path A) - the real proof.** The project is now `CODEPIPELINE`, and a failed pipeline build publishes no `BuildOutput`, so I use a one-off standalone build with source and artifact overrides on a separate key:
 
 ```bash
 ./scripts/utilities/usms-pack-source.sh labs/lab-11-cicd/app outputs/exercise2-broken.zip >/dev/null
@@ -349,6 +397,8 @@ aws s3api get-object --bucket usms-pipeline-artifacts --key build/exercise2-summ
 ```
 **Expected:** build `FAILED` at `POST_BUILD`, and the artifact still contains `build-summary.txt` saying `tests_exit=1`.
 
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 03-25-27.png>)
+
 **Restore the health file and confirm green:**
 ```bash
 cp /tmp/healthz.backup labs/lab-11-cicd/app/src/healthz.html
@@ -357,15 +407,13 @@ cp /tmp/healthz.backup labs/lab-11-cicd/app/src/healthz.html
 
 **What I can claim:** On Path A — *observed* that the summary is produced on failure and shipped. On Path B/C — only that the `finally` commands produce the right file when run by hand after a failure; the CodeBuild semantics (that `finally` runs and the artifact is still uploaded) are *recorded*, not observed.
 
-> 📸 **Screenshot 37 — Exercise 2: failed build (POST_BUILD FAILED) and build-summary.txt with tests_exit=1 (or local simulation)**
->
-> ![Screenshot 37](screenshots/37-ex2-finally.png)
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 03-42-33.png>)
 
 ---
 
-### Exercise 3 — Problem solving: make the configuration check robust
+### Exercise 3 - Problem solving: make the configuration check robust
 
-**Part A — parse, don't grep.** Replace both `pre_build` greps with one standard-library Python check that names expected **and** actual values. `smoke.sh` test 7 is updated the same way (otherwise a compact-JSON reformat would fail the smoke test instead).
+**Part A - parse, don't grep.** Replace both `pre_build` greps with one standard-library Python check that names expected **and** actual values. `smoke.sh` test 7 is updated the same way (otherwise a compact-JSON reformat would fail the smoke test instead).
 
 ```bash
 cd "$COURSE_ROOT/labs/lab-11-cicd/app"
@@ -482,6 +530,7 @@ EOF
 bash -n tests/smoke.sh && echo "smoke.sh syntax OK"
 cd "$COURSE_ROOT"
 ```
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 03-49-08.png>)
 
 **Prove it is indifferent to formatting (4-space indent, then compact):**
 ```bash
@@ -496,6 +545,7 @@ python3 -c 'import json;p="'"$P"'";d=json.load(open(p));json.dump(d,open(p,"w"),
 cat "$P"; echo
 ./scripts/utilities/usms-buildspec-run.sh labs/lab-11-cicd/app >/dev/null 2>&1 && echo "PASS with compact JSON (the old grep would have failed here)"
 ```
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 03-49-32.png>)
 
 **Prove it fails with a specific message:**
 ```bash
@@ -507,11 +557,9 @@ cp /tmp/service.json.backup "$P"
 ```
 **Expected:** `config/service.json is wrong - container: expected 'enrolment-api', found 'enrolment-api-v2'`.
 
-> 📸 **Screenshot 38 — Exercise 3A: PASS with 4-space and compact JSON; failure message naming both values**
->
-> ![Screenshot 38](screenshots/38-ex3-parse-check.png)
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 03-49-56.png>)
 
-**Part B — tighten the trust policy with `aws:SourceArn`.** Both project ARNs are listed because Exercise 1 reuses this role.
+**Part B - tighten the trust policy with `aws:SourceArn`.** Both project ARNs are listed because Exercise 1 reuses this role.
 ```bash
 cat > policies/trust-codebuild.json << 'EOF'
 {
@@ -542,6 +590,8 @@ aws iam update-assume-role-policy --role-name usms-codebuild-role \
 aws iam get-role --role-name usms-codebuild-role \
   --query 'Role.AssumeRolePolicyDocument.Statement[0].Condition' --output json
 ```
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 03-51-51.png>)
+
 (`update-assume-role-policy` is replace-only — the whole trust document is replaced, so the file must contain everything.)
 
 **What `aws:SourceArn` closes that `aws:SourceAccount` alone does not:** `SourceAccount` only proves that the CodeBuild project asking to assume the role lives in *my* account. Any other project in the same account — one created by another team, a forgotten test project, or one created by someone who holds `codebuild:CreateProject` and a loose `iam:PassRole` — could still be configured with `usms-codebuild-role` and CodeBuild would assume it, giving that project's buildspec our artifact-bucket write access. `SourceArn` pins the role to the specific project ARNs, so CodeBuild refuses to assume it on behalf of any other project — a same-account confused-deputy guard.
@@ -558,13 +608,11 @@ aws codepipeline get-pipeline-state --name usms-enrolment-pipeline \
   --query 'stageStates[].[stageName,latestExecution.status]' --output table
 ```
 
-> 📸 **Screenshot 39 — Exercise 3B: trust policy with two conditions (get-role output) and pipeline Succeeded**
->
-> ![Screenshot 39](screenshots/39-ex3-trust-policy.png)
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 03-52-54.png>)
 
 ---
 
-### Exercise 4 — Challenge: trigger the pipeline without polling
+### Exercise 4 - Challenge: trigger the pipeline without polling
 
 **Design (real AWS):**
 
@@ -581,7 +629,7 @@ target: arn:aws:codepipeline:...:usms-enrolment-pipeline
      runs as usms-events-pipeline-role  ->  codepipeline:StartPipelineExecution
 ```
 
-S3 object events reach EventBridge two ways: (a) the bucket's own **EventBridge notification** (`detail-type: "Object Created"`, no CloudTrail needed), or (b) **CloudTrail data events** (`detail-type: "AWS API Call via CloudTrail"`). The CodePipeline S3-source guidance uses (b); a `PutObject` on a versioned object produces a CloudTrail data event with `eventName: PutObject` whose `requestParameters` carry `bucketName` and `key`. Management events alone are **not** enough — object-level calls are data events and must be explicitly enabled on a trail. The rule matches the one key only, so the pipeline's own writes under `usms-enrolment-pipeline/` never re-trigger it.
+S3 object events reach EventBridge two ways: (a) the bucket's own **EventBridge notification** (`detail-type: "Object Created"`, no CloudTrail needed), or (b) **CloudTrail data events** (`detail-type: "AWS API Call via CloudTrail"`). The CodePipeline S3-source guidance uses (b); a `PutObject` on a versioned object produces a CloudTrail data event with `eventName: PutObject` whose `requestParameters` carry `bucketName` and `key`. Management events alone are **not** enough - object-level calls are data events and must be explicitly enabled on a trail. The rule matches the one key only, so the pipeline's own writes under `usms-enrolment-pipeline/` never re-trigger it.
 
 **1. Documents**
 ```bash
@@ -663,8 +711,9 @@ for f in templates/lab-11-eventbridge-rule.json templates/lab-11-eventbridge-tar
   python3 -m json.tool "$f" >/dev/null && echo "valid: $f"
 done
 ```
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 03-59-46.png>)
 
-**Why a separate target role:** EventBridge (principal `events.amazonaws.com`) needs exactly one permission — `codepipeline:StartPipelineExecution` on one pipeline. The pipeline role trusts `codepipeline.amazonaws.com` (EventBridge could not assume it anyway) and holds artifact read/write, `StartBuild` and `iam:PassRole`; giving those to an event trigger would widen what a spoofed or mis-matched event could do.
+**Why a separate target role:** EventBridge (principal `events.amazonaws.com`) needs exactly one permission - `codepipeline:StartPipelineExecution` on one pipeline. The pipeline role trusts `codepipeline.amazonaws.com` (EventBridge could not assume it anyway) and holds artifact read/write, `StartBuild` and `iam:PassRole`; giving those to an event trigger would widen what a spoofed or mis-matched event could do.
 
 **2. Build as much as the emulator supports (each call guarded)**
 ```bash
@@ -691,6 +740,8 @@ aws cloudtrail describe-trails --output table 2>/dev/null \
   && echo "CloudTrail API answers (trail + data events still Conceptual here)" \
   || echo "RECORD: cloudtrail not available"
 ```
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 12-52-55.png>)
+
 On real AWS the trail step would be:
 ```bash
 # Conceptual / Real AWS - needs a trail and a log bucket with a CloudTrail bucket policy
@@ -712,17 +763,15 @@ AFTER=$(aws codepipeline list-pipeline-executions --pipeline-name usms-enrolment
 echo "executions before=$BEFORE after=$AFTER"
 ```
 
-**Record:** If `after = before`, the rule/target exist as documents (and possibly as stored objects) but the chain did not fire, because Floci does not model CloudTrail data events feeding EventBridge end to end — that link is **Conceptual / Real AWS**. What ran: `__________`. What did not: `__________`.
+**Record:** If `after = before`, the rule/target exist as documents (and possibly as stored objects) but the chain did not fire, because Floci does not model CloudTrail data events feeding EventBridge end to end - that link is **Conceptual / Real AWS**. What ran: `The local buildspec ran the smoke tests, and the finally commands generated build-summary.txt with test_exit_status=1.`. What did not: `Floci did not publish the summary ZIP. I uploaded the locally generated ZIP to S3.`.
 
-> 📸 **Screenshot 40 — Exercise 4: documents valid, put-rule/put-targets results (or RECORD lines), before/after execution count**
->
-> ![Screenshot 40](screenshots/40-ex4-eventbridge.png)
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 12-54-28.png>)
 
 ---
 
-### Exercise 5 — Integration: prepare the deployment contract for Lab 12
+### Exercise 5 - Integration: prepare the deployment contract for Lab 12
 
-**Final buildspec** — adds `imagedefinitions.json` (container name read from `config/service.json`, image from `${IMAGE_URI:-...}`, always a JSON **array**):
+**Final buildspec** - adds `imagedefinitions.json` (container name read from `config/service.json`, image from `${IMAGE_URI:-...}`, always a JSON **array**):
 
 ```bash
 cd "$COURSE_ROOT/labs/lab-11-cicd/app"
@@ -823,6 +872,7 @@ cache:
   paths: []
 BUILDSPEC
 ```
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 12-59-02.png>)
 
 **Eighth smoke assertion:**
 ```bash
@@ -864,6 +914,8 @@ cat labs/lab-11-cicd/app/dist/imagedefinitions.json; echo
 ```
 **Expected:** 8 `ok` lines; `[{"name": "enrolment-api", "imageUri": "public.ecr.aws/nginx/nginx:stable-alpine"}]`.
 
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 12-59-33.png>)
+
 **Run the pipeline and confirm the file is at the artifact root:**
 ```bash
 ./scripts/utilities/usms-pack-source.sh labs/lab-11-cicd/app outputs/usms-enrolment-src.zip >/dev/null
@@ -903,6 +955,7 @@ print("imagedefinitions.json:", d)
 PY
 )
 ```
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 13-05-27.png>)
 
 **Readiness file for Lab 12 Step 1:**
 ```bash
@@ -928,9 +981,7 @@ EOF
 cat outputs/lab-11-lab08b-readiness.txt
 ```
 
-> 📸 **Screenshot 41 — Exercise 5: local run with 8 ok, pipeline Succeeded, artifact root contains imagedefinitions.json, readiness file**
->
-> ![Screenshot 41](screenshots/41-ex5-imagedefinitions.png)
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 13-05-48.png>)
 
 ### Exercises record and commit
 
@@ -979,8 +1030,6 @@ git commit -m "Lab 11: exercises 1-5"
 ./scripts/utilities/verify-lab-11.sh
 ```
 
-> 📸 **Screenshot 42 — Exercises committed and verify-lab-11.sh still passing**
->
-> ![Screenshot 42](screenshots/42-exercises-commit-verify.png)
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 13-06-23.png>)
 
 ---

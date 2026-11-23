@@ -14,7 +14,7 @@
 8. [Verification](#8-verification)
 9. [Checkpoints Summary](#9-checkpoints-summary)
 10. [Floci vs Real AWS — Observed vs Recorded](#10-floci-vs-real-aws--observed-vs-recorded)
-11. [Independent Lab Exercises (1–5)](notes/lab-11-notes.md#11-independent-lab-exercises)
+11. [Independent Lab Exercises (1–5)](#11-independent-lab-exercises)
 12. [Lab Assessment Checklist](#12-lab-assessment-checklist)
 13. [Review Questions and Answers](#13-review-questions-and-answers)
 14. [Clean-up Script, Snapshot and Preparation for Lab 12](#14-clean-up-script-snapshot-and-preparation-for-lab-12)
@@ -2107,7 +2107,7 @@ aws codepipeline get-pipeline-state --name usms-enrolment-pipeline \
 
 | Execution | Trigger | Result |
 |---|---|---|
-| 1 | automatic, at creation | No execution recorded. Both stages showed `None`. |
+| 1 | automatic, at creation | No execution recorded. Both stages showed None. |
 | 2 | r4 | Succeeded |
 | 3 | r5 | Succeeded |
 | 4 | broken container name | Failed at Build / PRE_BUILD |
@@ -2115,15 +2115,71 @@ aws codepipeline get-pipeline-state --name usms-enrolment-pipeline \
 
 ---
 
-### Step 21 — Record this lab's outputs, and commit
-
-From the repository root, run the [Lab 11 environment recorder](../../scripts/utilities/usms-record-lab-11-env.sh). It reads the local Floci configuration and validates the 26 exports before replacing `configs/lab-11.env`.
+### Step 21 - Record this lab's outputs, and commit
 
 ```bash
-./scripts/utilities/usms-record-lab-11-env.sh
-```
+cd "$COURSE_ROOT"
 
-**Expected:** `all values populated`, then `26` exports, then `0` unexpanded command substitutions.
+cat > configs/lab-11.env << EOF
+# Lab 11 - CI/CD: source, build, and the pipeline that joins them
+# Generated on $(date -u +%Y-%m-%dT%H:%M:%SZ)
+# Contains names, ARNs and IDs only. NO SECRETS. Safe to commit.
+
+# --- artifact store and source ---
+export USMS_PIPELINE_BUCKET=usms-pipeline-artifacts
+export USMS_PIPELINE_BUCKET_VERSIONING=$(aws s3api get-bucket-versioning \
+    --bucket usms-pipeline-artifacts --query 'Status' --output text 2>/dev/null \
+    | grep -E '^(Enabled|Suspended)$' || echo Unknown)
+export USMS_SOURCE_KEY=source/usms-enrolment-src.zip
+export USMS_SOURCE_VERSION_ID=$(aws s3api head-object \
+    --bucket usms-pipeline-artifacts --key source/usms-enrolment-src.zip \
+    --query 'VersionId' --output text 2>/dev/null || echo not-created)
+export USMS_BUILD_ARTIFACT_PREFIX=usms-enrolment-pipeline/BuildOutput/
+
+# --- build project ---
+export USMS_BUILD_PROJECT=usms-enrolment-build
+export USMS_BUILD_PROJECT_ARN=$(aws codebuild batch-get-projects --names usms-enrolment-build \
+    --query 'projects[0].arn' --output text 2>/dev/null | grep -E '^arn:' || echo not-created)
+export USMS_BUILD_SOURCE_TYPE=$(aws codebuild batch-get-projects --names usms-enrolment-build \
+    --query 'projects[0].source.type' --output text 2>/dev/null | grep -E '^[A-Z_]+$' || echo not-created)
+export USMS_BUILD_IMAGE=docker.io/library/python:3.12-slim-bookworm
+export USMS_BUILD_COMPUTE_TYPE=BUILD_GENERAL1_SMALL
+export USMS_BUILD_TIMEOUT_MINUTES=15
+export USMS_BUILD_LOG_GROUP=/aws/codebuild/usms-enrolment-build
+
+# --- build identity ---
+export USMS_BUILD_ROLE=usms-codebuild-role
+export USMS_BUILD_ROLE_ARN=$(aws iam get-role --role-name usms-codebuild-role \
+    --query 'Role.Arn' --output text)
+export USMS_POLICY_CODEBUILD=USMSCodeBuildBase
+export USMS_POLICY_CODEBUILD_ARN=arn:aws:iam::000000000000:policy/USMSCodeBuildBase
+
+# --- pipeline ---
+export USMS_PIPELINE_NAME=usms-enrolment-pipeline
+export USMS_PIPELINE_STAGE_COUNT=$(aws codepipeline get-pipeline --name usms-enrolment-pipeline \
+    --query 'length(pipeline.stages)' --output text 2>/dev/null | grep -E '^[0-9]+$' || echo 0)
+export USMS_PIPELINE_ROLE=usms-codepipeline-role
+export USMS_PIPELINE_ROLE_ARN=$(aws iam get-role --role-name usms-codepipeline-role \
+    --query 'Role.Arn' --output text)
+export USMS_POLICY_CODEPIPELINE=USMSCodePipelineBase
+export USMS_POLICY_CODEPIPELINE_ARN=arn:aws:iam::000000000000:policy/USMSCodePipelineBase
+
+# --- source tree ---
+export USMS_APP_SRC_DIR=labs/lab-11-cicd/app
+export USMS_BUILDSPEC=labs/lab-11-cicd/app/buildspec.yml
+export USMS_RELEASE_TAG=$(tr -d '[:space:]' < labs/lab-11-cicd/app/VERSION)
+export USMS_CICD_SUPPORT_PATH=$(sed -n 's/^USMS_CICD_SUPPORT_PATH=//p' \
+    outputs/lab-11-support-probe.txt 2>/dev/null || echo unknown)
+EOF
+
+grep -n 'export .*=$\|None' configs/lab-11.env || echo "all values populated"
+grep -c '^export' configs/lab-11.env
+grep -c '\$(' configs/lab-11.env      # 0 - every $(...) ran at write time
+```
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-22 21-49-21.png>)
+Unquoted heredoc here: every `$(...)` runs **now**. `| grep -E ... || echo not-created` turns absent resources into a populated value instead of `None`.
+
+**Expected:** `all values populated`, `26`.
 
 **Verify:**
 ```bash
@@ -2135,14 +2191,13 @@ printf 'bucket=%s versioning=%s project=%s stages=%s release=%s path=%s\n' \
 ```
 **Look for:** `versioning=Enabled`, `stages=2` (Path A), `release=r5`.
 
-> 📸 **Screenshot 33 — Step 21: all values populated, 26 exports, verify printf line**
->
-> ![Screenshot 33](screenshots/33-step21-env.png)
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-22 21-49-53.png>)
 
 **Commit:**
 ```bash
 git status --short
 ```
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-22 21-50-07.png>)
 **Look for:** nothing under `outputs/`, and no `.env` except `configs/lab-11.env`.
 
 ```bash
@@ -2154,41 +2209,173 @@ git add configs/lab-11.env \
         scripts/utilities/cicd-support-probe.sh \
         scripts/utilities/usms-pack-source.sh \
         scripts/utilities/usms-buildspec-run.sh \
-        scripts/utilities/usms-record-lab-11-env.sh \
         .gitignore
 
 git status --short
 git commit -m "Lab 11: source tree, buildspec, CodeBuild project and two-stage pipeline"
 ```
 
-> 📸 **Screenshot 34 — Step 21: git status before/after staging and the commit**
->
-> ![Screenshot 34](screenshots/34-step21-commit.png)
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-22 21-50-31.png>)
 
-**Checkpoint 10 ✅** — `configs/lab-11.env` (26 populated exports) committed; nothing from `outputs/` staged.
+**Checkpoint 10** - `configs/lab-11.env` (26 populated exports) committed; nothing from `outputs/` staged.
 
 ---
 
 ## 8. Verification
 
-Run the [Lab 11 verifier](../../scripts/utilities/verify-lab-11.sh) from the repository root. It checks the live CodeBuild image against `USMS_BUILD_IMAGE` in `configs/lab-11.env`.
-
 ```bash
+cd "$COURSE_ROOT"
+
+cat > scripts/utilities/verify-lab-11.sh << 'EOF'
+#!/usr/bin/env bash
+# Verify every Lab 11 artefact. Exit 1 if anything is missing.
+# EXPECTED: PASS=46  FAIL=0        (Path A)
+#           PASS=38  FAIL=8        (Path B or C - the CodeBuild/CodePipeline block)
+set -uo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
+# shellcheck disable=SC1091
+source "$REPO_ROOT/configs/course.env"
+for f in configs/lab-01.env configs/lab-04.env configs/lab-05.env \
+         configs/lab-10.env configs/lab-11.env; do
+  # shellcheck disable=SC1090
+  [ -f "$f" ] && source "$f"
+done
+
+: "${FLOCI_CONTAINER_NAME:=floci}"
+: "${USMS_PIPELINE_BUCKET:=usms-pipeline-artifacts}"
+: "${USMS_BUILD_PROJECT:=usms-enrolment-build}"
+: "${USMS_PIPELINE_NAME:=usms-enrolment-pipeline}"
+: "${USMS_BUILD_ROLE:=usms-codebuild-role}"
+: "${USMS_PIPELINE_ROLE:=usms-codepipeline-role}"
+: "${USMS_ECS_CLUSTER:=usms-ecs-cluster}"
+: "${USMS_ENROLMENT_SERVICE:=usms-enrolment-svc}"
+: "${USMS_ENROLMENT_CONTAINER:=enrolment-api}"
+
+PASS=0; FAIL=0
+check() {
+  if eval "$2" >/dev/null 2>&1; then printf "  ok   %s\n" "$1"; PASS=$((PASS+1))
+  else printf "  FAIL %s\n" "$1"; FAIL=$((FAIL+1)); fi
+}
+proj() { aws codebuild batch-get-projects --names "$USMS_BUILD_PROJECT" --query "projects[0].$1" --output text; }
+pipe() { aws codepipeline get-pipeline --name "$USMS_PIPELINE_NAME" --query "pipeline.$1" --output text; }
+spec="labs/lab-11-cicd/app/buildspec.yml"
+
+echo "== Environment =="
+check "Floci container running" \
+  "test \"\$(docker container inspect $FLOCI_CONTAINER_NAME --format '{{.State.Running}}')\" = true"
+check "storage mode is NOT memory" \
+  "docker container inspect $FLOCI_CONTAINER_NAME --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -qE '^FLOCI_STORAGE_MODE=(hybrid|persistent|wal)$'"
+check "AWS CLI reaches Floci" "aws sts get-caller-identity"
+check "account is 000000000000" \
+  "test \"\$(aws sts get-caller-identity --query Account --output text)\" = 000000000000"
+
+echo "== Earlier-lab dependencies =="
+check "configs/lab-04.env present" "test -f configs/lab-04.env"
+check "configs/lab-10.env present"  "test -f configs/lab-10.env"
+check "ECS cluster $USMS_ECS_CLUSTER exists" \
+  "test \"\$(aws ecs describe-clusters --clusters $USMS_ECS_CLUSTER --query 'clusters[0].status' --output text)\" = ACTIVE"
+check "ECS service $USMS_ENROLMENT_SERVICE exists" \
+  "aws ecs describe-services --cluster $USMS_ECS_CLUSTER --services $USMS_ENROLMENT_SERVICE --query 'services[0].serviceName' --output text | grep -q ."
+check "container name is enrolment-api" "test \"$USMS_ENROLMENT_CONTAINER\" = enrolment-api"
+
+echo "== Artifact store =="
+check "bucket $USMS_PIPELINE_BUCKET exists" "aws s3api head-bucket --bucket $USMS_PIPELINE_BUCKET"
+check "versioning is Enabled" \
+  "test \"\$(aws s3api get-bucket-versioning --bucket $USMS_PIPELINE_BUCKET --query Status --output text)\" = Enabled"
+check "public access is blocked" \
+  "aws s3api get-public-access-block --bucket $USMS_PIPELINE_BUCKET --query 'PublicAccessBlockConfiguration.BlockPublicAcls' --output text | grep -qi true"
+check "source object present" \
+  "aws s3api head-object --bucket $USMS_PIPELINE_BUCKET --key source/usms-enrolment-src.zip"
+check "source has at least two versions" \
+  "test \"\$(aws s3api list-object-versions --bucket $USMS_PIPELINE_BUCKET --prefix source/usms-enrolment-src.zip --query 'length(Versions || \`[]\`)' --output text)\" -ge 2"
+
+echo "== Pipeline identities =="
+check "role $USMS_BUILD_ROLE exists" "aws iam get-role --role-name $USMS_BUILD_ROLE"
+check "build role trusts codebuild.amazonaws.com" \
+  "aws iam get-role --role-name $USMS_BUILD_ROLE --query 'Role.AssumeRolePolicyDocument' --output json | grep -q codebuild.amazonaws.com"
+check "policy USMSCodeBuildBase exists" \
+  "aws iam get-policy --policy-arn arn:aws:iam::000000000000:policy/USMSCodeBuildBase"
+check "USMSCodeBuildBase attached to the build role" \
+  "aws iam list-attached-role-policies --role-name $USMS_BUILD_ROLE --query 'AttachedPolicies[].PolicyName' --output text | grep -q USMSCodeBuildBase"
+check "role $USMS_PIPELINE_ROLE exists" "aws iam get-role --role-name $USMS_PIPELINE_ROLE"
+check "pipeline role trusts codepipeline.amazonaws.com" \
+  "aws iam get-role --role-name $USMS_PIPELINE_ROLE --query 'Role.AssumeRolePolicyDocument' --output json | grep -q codepipeline.amazonaws.com"
+check "policy USMSCodePipelineBase exists" \
+  "aws iam get-policy --policy-arn arn:aws:iam::000000000000:policy/USMSCodePipelineBase"
+check "USMSCodePipelineBase attached to the pipeline role" \
+  "aws iam list-attached-role-policies --role-name $USMS_PIPELINE_ROLE --query 'AttachedPolicies[].PolicyName' --output text | grep -q USMSCodePipelineBase"
+check "pipeline policy scopes iam:PassRole" \
+  "grep -q 'iam:PassedToService' policies/usms-codepipeline-policy.json"
+
+echo "== CodeBuild =="
+check "project $USMS_BUILD_PROJECT exists"        "proj name | grep -q $USMS_BUILD_PROJECT"
+check "project source type is CODEPIPELINE"       "proj source.type | grep -q CODEPIPELINE"
+check "project runs as $USMS_BUILD_ROLE"          "proj serviceRole | grep -q $USMS_BUILD_ROLE"
+check "project image is standard:7.0"             "proj environment.image | grep -q 'standard:7.0'"
+
+echo "== CodePipeline =="
+check "pipeline $USMS_PIPELINE_NAME exists"       "pipe name | grep -q $USMS_PIPELINE_NAME"
+check "pipeline has 2 stages"                     "test \"\$(pipe 'length(stages)')\" = 2"
+check "stage 1 provider is S3"                    "pipe 'stages[0].actions[0].actionTypeId.provider' | grep -q '^S3$'"
+check "stage 2 builds $USMS_BUILD_PROJECT"        "pipe 'stages[1].actions[0].configuration.ProjectName' | grep -q $USMS_BUILD_PROJECT"
+
+echo "== Source tree and scripts =="
+check "buildspec.yml present"                     "test -f $spec"
+check "buildspec declares version 0.2"            "grep -qE '^version: 0\.2' $spec"
+check "buildspec has all four phases"             "test \"\$(grep -cE '^  (install|pre_build|build|post_build):' $spec)\" = 4"
+check "artifacts base-directory is dist"          "grep -qE '^  base-directory: dist' $spec"
+check "smoke test is valid bash"                  "bash -n labs/lab-11-cicd/app/tests/smoke.sh"
+check "usms-pack-source.sh executable and valid"  "test -x scripts/utilities/usms-pack-source.sh && bash -n scripts/utilities/usms-pack-source.sh"
+check "usms-buildspec-run.sh executable and valid" "test -x scripts/utilities/usms-buildspec-run.sh && bash -n scripts/utilities/usms-buildspec-run.sh"
+
+echo "== Files and Git hygiene =="
+check "configs/lab-11.env present"               "test -f configs/lab-11.env"
+check "no empty or None values in lab-11.env"    "! grep -qE 'export [A-Z_]+=$|=None$' configs/lab-11.env"
+check "codebuild project template is valid JSON"  "python3 -m json.tool templates/lab-11-codebuild-project.json"
+check "pipeline template is valid JSON"           "python3 -m json.tool templates/lab-11-pipeline.json"
+check "templates contain no unexpanded variables" "! grep -q '[\$]' templates/lab-11-codebuild-project.json templates/lab-11-pipeline.json"
+check "all four policy documents are valid JSON" \
+  "python3 -m json.tool policies/trust-codebuild.json && python3 -m json.tool policies/trust-codepipeline.json && python3 -m json.tool policies/usms-codebuild-policy.json && python3 -m json.tool policies/usms-codepipeline-policy.json"
+check "no secret is tracked"                      "! git ls-files | grep -q '^outputs/'"
+check "build output dist/ is git-ignored"         "git check-ignore -q labs/lab-11-cicd/app/dist/build-metadata.json"
+
+echo; echo "PASS=$PASS  FAIL=$FAIL"
+if [ "$FAIL" -ne 0 ]; then
+  cat <<'REMEDY'
+
+Read the failures top-down, not bottom-up.
+
+  Environment block failing        -> Floci is not running, or is in memory mode.
+                                      Fix this first; everything below is a consequence.
+  Earlier-lab dependencies failing -> re-run verify-lab-04.sh / verify-lab-10.sh.
+  Artifact store failing           -> Step 5 and Step 6.
+  CodeBuild / CodePipeline block   -> if the support probe said Path B or C, eight
+                                      failures here are EXPECTED. Record the path.
+  Source tree failing              -> Step 7, Step 8, Step 11, Step 14.
+  Hygiene failing                  -> Step 21, and .gitignore.
+REMEDY
+fi
+[ "$FAIL" -eq 0 ]
+EOF
+
+chmod +x scripts/utilities/verify-lab-11.sh
+bash -n scripts/utilities/verify-lab-11.sh && echo "syntax OK"
 ./scripts/utilities/verify-lab-11.sh
 ```
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-22 22-00-58.png>)
 
-**Expected:** `PASS=46  FAIL=0` (Path A) — or `PASS=38 FAIL=8` (Path B/C).
+**Expected:** `PASS=46  FAIL=0` (Path A) - or `PASS=38 FAIL=8` (Path B/C).
 
-**My result:** `PASS=46  FAIL=0`
+**My result:** `PASS=_46_  FAIL=__0__`
 
 ```bash
 git add scripts/utilities/verify-lab-11.sh
 git commit -m "Lab 11: verification script"
 ```
 
-> 📸 **Screenshot 35 — verify-lab-11.sh full output with PASS/FAIL count**
->
-> ![Screenshot 35](screenshots/35-verify-lab-11.png)
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-22 22-03-48.png>)
 
 ### 8.1 Known benign failures
 
@@ -2201,7 +2388,6 @@ git commit -m "Lab 11: verification script"
 | no secret is tracked | Never | Fix `.gitignore`, then `git rm --cached` |
 | versioning is Enabled | Never | Return to Step 5 |
 
-**Benign failures in my run (if any):** I had no benign failures. My final Path A verification reported `PASS=46 FAIL=0`.
 
 ---
 
@@ -2209,20 +2395,20 @@ git commit -m "Lab 11: verification script"
 
 | # | After Step | What must exist | Done |
 |---|---|---|---|
-| 1 | 3 | `cicd-support-probe.sh`; path in `outputs/lab-11-support-probe.txt` | ☐ |
-| 2 | 6 | `usms-pipeline-artifacts`, versioning proved then cleaned | ☐ |
-| 3 | 8 | `labs/lab-11-cicd/app/` with buildspec, VERSION, src, config, tests | ☐ |
-| 4 | 10 | `usms-codebuild-role` + `USMSCodeBuildBase`; project (source S3) | ☐ |
-| 5 | 13 | One standalone build, ten phases; object under `build/` | ☐ |
-| 6 | 14 | Packer + local runner; local build producing `dist/` | ☐ |
-| 7 | 17 | Two-stage pipeline, Source `Succeeded` | ☐ |
-| 8 | 19 | Artifact whose `build-metadata.json` names the uploaded release | ☐ |
-| 9 | 20 | One deliberate failure diagnosed to a phase, then fixed | ☐ |
-| 10 | 21 | `configs/lab-11.env` with 26 exports, committed | ☐ |
+| 1 | 3 | `cicd-support-probe.sh`; path in `outputs/lab-11-support-probe.txt` | yes |
+| 2 | 6 | `usms-pipeline-artifacts`, versioning proved then cleaned | yes |
+| 3 | 8 | `labs/lab-11-cicd/app/` with buildspec, VERSION, src, config, tests | yes |
+| 4 | 10 | `usms-codebuild-role` + `USMSCodeBuildBase`; project (source S3) | yes |
+| 5 | 13 | One standalone build, ten phases; object under `build/` | yes |
+| 6 | 14 | Packer + local runner; local build producing `dist/` | yes |
+| 7 | 17 | Two-stage pipeline, Source `Succeeded` | yes |
+| 8 | 19 | Artifact whose `build-metadata.json` names the uploaded release | yes |
+| 9 | 20 | One deliberate failure diagnosed to a phase, then fixed | yes |
+| 10 | 21 | `configs/lab-11.env` with 26 exports, committed | yes |
 
 ---
 
-## 10. Floci vs Real AWS — Observed vs Recorded
+## 10. Floci vs Real AWS - Observed vs Recorded
 
 | Feature | Real AWS | Floci | Status |
 |---|---|---|---|
@@ -2244,15 +2430,15 @@ git commit -m "Lab 11: verification script"
 
 ### 10.1 My evidence (move lines from OBSERVED to RECORDED if on Path B/C)
 
-**OBSERVED** — I saw this happen on my machine:
-- [ ] the source tree packaged into a zip whose root is the tree's contents
-- [ ] the buildspec parsed, and its four phases executed in order
-- [ ] seven smoke tests passing, and failing when a placeholder was not replaced
-- [ ] a build artifact whose `build-metadata.json` named the release I had just set
-- [ ] a deliberately broken config failing in `pre_build` and not in `build`
-- [ ] two versions of one S3 key, the older still retrievable
+**OBSERVED**  I saw this happen on my machine:
+- [x] the source tree packaged into a zip whose root is the tree's contents
+- [x] the buildspec parsed, and its four phases executed in order
+- [x] seven smoke tests passing, and failing when a placeholder was not replaced
+- [x] a build artifact whose `build-metadata.json` named the release I had just set
+- [x] a deliberately broken config failing in `pre_build` and not in `build`
+- [x] two versions of one S3 key, the older still retrievable
 
-**RECORDED** — correct and checkable by reading, not enforced here:
+**RECORDED** - correct and checkable by reading, not enforced here:
 - the CodeBuild role's scoping to one log group and one bucket
 - the explicit Deny on `usms-student-data`
 - the pipeline role's `iam:PassRole`, scoped to one role and one receiving service
@@ -2263,98 +2449,37 @@ git commit -m "Lab 11: verification script"
 **My claim, stated honestly:** I built and ran a two-stage pipeline (S3 Source → CodeBuild Build) on Path A in Floci. Both stages reported success for release `r5`. S3 contained no `BuildOutput` object, so I used the local buildspec runner on the exact S3 source version and verified that the resulting artifact’s `build-metadata.json` recorded release `r5` and the matching source version ID.
 
 ---
-## 12. Lab Assessment Checklist
+
+## 11. Lab Assessment Checklist
 
 Tick only with evidence (screenshot number in brackets).
 
-- [ ] `cicd-support-probe.sh` run; path recorded in notes (Screenshot 4)
-- [ ] `usms-pipeline-artifacts` created, versioned, versioning proved by two versions at one key (6, 7)
-- [ ] Probe objects deleted after reading the danger admonition (8)
-- [ ] `labs/lab-11-cicd/app/` complete: VERSION, src/, config/, tests/, buildspec.yml (9, 10)
-- [ ] `buildspec.yml` has `version: 0.2`, four phases, `artifacts.base-directory: dist` (10)
-- [ ] Nested-heredoc rule stated in notes: *quoted writes text, unquoted writes result* (Section 13, Q5)
-- [ ] `usms-codebuild-role` + `USMSCodeBuildBase`; explicit Deny explained in one sentence (12)
-- [ ] `usms-enrolment-build` created from a template with zero unexpanded `$` (13)
-- [ ] Standalone build run; ten phases read from `batch-get-builds` (15, 16)
-- [ ] `usms-pack-source.sh` and `usms-buildspec-run.sh` written, `bash -n` clean, used (14, 19)
-- [ ] Local build producing `dist/` with `buildId: local` (20)
-- [ ] `usms-codepipeline-role` + `USMSCodePipelineBase`; `iam:PassRole` explained (22)
-- [ ] Two-stage pipeline from a validated JSON document (23, 24)
-- [ ] Project converted to `CODEPIPELINE`; resulting `start-build` failure observed (25)
-- [ ] Execution whose artifact proves the uploaded release — create → perturb → read back (28, 29)
-- [ ] One deliberate failure diagnosed stage → build → phase → command, then fixed (30–32)
-- [ ] `configs/lab-11.env` with 26 populated exports (33)
-- [ ] `verify-lab-11.sh` run; count and benign failures recorded (35)
-- [ ] `git status --short` checked before staging; nothing from `outputs/` committed (34)
-- [ ] Five exercises attempted; Exercise 5 readiness file written (36–42)
-- [ ] Section 15 questions answered in prose in `notes/lab-11-notes.md` (below)
-
+- [x] `cicd-support-probe.sh` run; path recorded in notes (Screenshot 4)
+- [x] `usms-pipeline-artifacts` created, versioned, versioning proved by two versions at one key (6, 7)
+- [x] Probe objects deleted after reading the danger admonition (8)
+- [x] `labs/lab-11-cicd/app/` complete: VERSION, src/, config/, tests/, buildspec.yml (9, 10)
+- [x] `buildspec.yml` has `version: 0.2`, four phases, `artifacts.base-directory: dist` (10)
+- [x] Nested-heredoc rule stated in notes: *quoted writes text, unquoted writes result* (Section 13, Q5)
+- [x] `usms-codebuild-role` + `USMSCodeBuildBase`; explicit Deny explained in one sentence (12)
+- [x] `usms-enrolment-build` created from a template with zero unexpanded `$` (13)
+- [x] Standalone build run; ten phases read from `batch-get-builds` (15, 16)
+- [x] `usms-pack-source.sh` and `usms-buildspec-run.sh` written, `bash -n` clean, used (14, 19)
+- [x] Local build producing `dist/` with `buildId: local` (20)
+- [x] `usms-codepipeline-role` + `USMSCodePipelineBase`; `iam:PassRole` explained (22)
+- [x] Two-stage pipeline from a validated JSON document (23, 24)
+- [x] Project converted to `CODEPIPELINE`; resulting `start-build` failure observed (25)
+- [x] Execution whose artifact proves the uploaded release — create → perturb → read back (28, 29)
+- [x] One deliberate failure diagnosed stage → build → phase → command, then fixed (30–32)
+- [x] `configs/lab-11.env` with 26 populated exports (33)
+- [x] `verify-lab-11.sh` run; count and benign failures recorded (35)
+- [x] `git status --short` checked before staging; nothing from `outputs/` committed (34)
+- [x] Five exercises attempted; Exercise 5 readiness file written (36–42)
+- [x] Section 15 questions answered in prose in `notes/lab-11-notes.md` (below)
 ---
 
-## 13. Review Questions and Answers
+## 12. Clean-up Script, Snapshot and Preparation for Lab 12
 
-**Q1. Source and Build both succeed but the deployed application is unchanged. Give two explanations (one involving `artifacts.base-directory`, one involving the source zip's layout) and how to distinguish them with one command each.**
-
-*Explanation 1 — `base-directory`.* If `base-directory` is missing or wrong, the build "succeeds" but the output artifact either has everything nested under `dist/` or contains the unbuilt tree. The deploy step then looks for `imagedefinitions.json` or `index.html` at the artifact root, does not find the new file, and the service keeps what it had. *Distinguish with:* `unzip -l outputs/lab-11-buildoutput.zip` on the downloaded `BuildOutput` — paths starting with `dist/` (or `src/`) reveal it.
-
-*Explanation 2 — source zip layout.* If the zip was built from the wrong directory — for example it contains the new files under `app/` while stale copies of `buildspec.yml` and `VERSION` sit at the root, or it was packed before the edit — CodeBuild happily builds the **root-level, old** content. Every stage is green; the build faithfully built the wrong source. *Distinguish with:* `unzip -l outputs/usms-enrolment-src.zip` (or on the `SourceOutput` object) — a nested `app/` prefix or an unchanged `VERSION` reveals it. The first problem is visible in the output artifact, the second already in the input artifact.
-
-**Q2. Why does CodePipeline require versioning on an S3 source bucket? (In terms of what an execution needs to record about itself.)**
-
-An execution must be able to say *exactly which bytes it started from* and must use those same bytes for every later stage and retry. In an unversioned bucket a key is just a mutable name: between the moment the Source action observed a change and the moment it (or a retried stage) reads the object, someone could overwrite it, and the execution would have no identifier for what it actually consumed. With versioning, the Source action records the object's **version ID** as the execution's source revision (`CODEBUILD_RESOLVED_SOURCE_VERSION` downstream), pins the `SourceOutput` to it, and change detection itself becomes "has the version ID changed?". Versioning turns "the file at this key" into "this immutable revision", which is what an execution history is made of.
-
-**Q3. Explain `iam:PassRole` to someone who thinks it is redundant.**
-
-Their objection is reasonable: if I may create the project, why a second permission for its role? Because *creating* a project and *choosing what authority it runs with* are different powers. A CodeBuild project runs arbitrary commands with its service role's permissions. If "create project" implied "use any role", then anyone allowed to create a harmless build project could name the account's administrator role (any role trusted by CodeBuild) and run `aws iam create-user …` inside the build — a privilege escalation from "can configure builds" to "is admin". `iam:PassRole` separates **configuration rights** from **delegation rights**: you may create the project, but you may only attach roles you have been explicitly allowed to hand over, and `iam:PassedToService` restricts which service may receive them. In this lab the pipeline may pass exactly one role (`usms-codebuild-role`) to exactly one service (CodeBuild).
-
-**Q4. Argue for the two-role design, then give the strongest argument against it.**
-
-*For:* the two principals have different jobs and different exposure. The build container executes code from the repository and its dependencies — the most likely thing in the system to be compromised — so it should hold the least: its own log group and the artifact bucket. The pipeline orchestrates: it starts builds, reads every artifact and passes roles, but runs no user code. With separate roles a compromised build cannot start other builds, pass roles or (in Lab 12) update ECS services; blast radii stay separate, policies stay readable and each can be audited against its own job.
-
-*Against:* the separation is weaker than it looks. The build already writes the artifact that the pipeline will deploy, so an attacker who controls the build controls what gets deployed regardless of which role runs the deploy; the security boundary that really matters is who can change the source. Meanwhile two roles, two policies, a PassRole statement and two trust policies are twice the surface for drift and misconfiguration (as the missing results-build log group in Exercise 1 showed), and a single well-scoped role would be easier to reason about in a small system.
-
-**Q5. For each heredoc form, what breaks if it were the other form, and why no error tells you?**
-
-- **`<< 'BUILDSPEC'` (quoted) → if unquoted:** my shell expands `$USMS_RELEASE`, `$ARTIFACT_DIR`, `${CODEBUILD_BUILD_ID:-local}` at write time, and even runs `$(tr … < VERSION)` and `$(date …)` right then. The buildspec lands with empty variables and a frozen release/timestamp. It is still valid YAML and valid shell, the placeholders are replaced with empty strings (so the "placeholder replaced" tests even pass) — nothing errors; the build just stops meaning anything.
-- **`<< META` (unquoted, inside) → if quoted:** `build-metadata.json` is written containing the literal text `"$USMS_RELEASE"`, `"${CODEBUILD_BUILD_ID:-local}"`. That is still valid JSON, so the smoke test "metadata is valid JSON" passes and no error appears — but the metadata no longer records anything, and Step 19's proof silently loses its evidence.
-- **Quoting the environment recorder’s heredoc delimiter:** `configs/lab-11.env` contains the `$(aws …)` commands themselves. Sourcing it still works — it just re-runs AWS calls every time and records whatever is true *then*, not what was true when the lab finished; with Floci down it yields empty values. No syntax is wrong, so nothing complains.
-
-In all three cases the shell is doing exactly what it was told; the mistake is in *when* expansion happens, and the result is well-formed text. **Quoted heredoc writes the text; unquoted heredoc writes the result.**
-
-**Q6. When is the colleague right to remove `pre_build` validation, and when expensively wrong?**
-
-*Right* when the deploy stage is cheap, fast, early and safe: it performs exactly the same check, fails before any change reaches running tasks (or rolls back automatically), produces a clear message, and there is only one deployment target — then the duplicate check only adds maintenance.
-
-*Expensively wrong* when a failure at deploy time costs more than a failure at build time: when the image has already been built and pushed (minutes and registry clutter), when the deploy stage fails with a message that does not name the cause (Lab 12's container-name mismatch does not mention the container), when a half-applied deployment or rollback affects live users of the student-records system, when the same artifact feeds several targets (ECS and EKS), or when the deploy-time check is weaker or changes later. `pre_build` fails in ninety seconds with a precise message before anything is produced; the deploy stage fails after everything is.
-
-**Q7. Evidence chain for an auditor that r4 was built from the repository source on a given date, and the weakest link.**
-
-1. The **git commit** in the repository on that date containing `VERSION = r4` (`git log -p -- labs/lab-11-cicd/app/VERSION`).
-2. The **S3 object version** of `source/usms-enrolment-src.zip` with its `LastModified` timestamp (`list-object-versions`) — the older version is still retrievable, so its contents can be unzipped and compared to the commit.
-3. The **pipeline execution** that consumed that version: Source action summary records the S3 version ID (`get-pipeline-state` / `list-pipeline-executions`).
-4. The **CodeBuild build** for that execution: build ID and `resolvedSourceVersion` in `batch-get-builds`, plus phases/logs.
-5. The **build artifact** in `BuildOutput`, whose `build-metadata.json` records `release: r4`, `buildId`, `sourceVersion` matching step 2, and `builtAt`.
-
-**Weakest link:** step 1 → step 2. The zip is packed **by hand from my working tree** with `usms-pack-source.sh` and uploaded manually; nothing records which git commit (or whether uncommitted edits) went into it. The chain from S3 version to artifact is machine-recorded; the chain from repository to S3 version rests on my say-so. (Fix: have the packer write `git rev-parse HEAD` and a clean-tree check into the zip and into `build-metadata.json`, or use a Git-based source.)
-
-**Copy these answers into the notes file:**
-```bash
-cd "$COURSE_ROOT"
-sed -n '/^## 13\. Review Questions and Answers/,/^## 14\. /p' labs/lab-11-cicd/README.md \
-  | sed '$d' | sed '/^\*\*Copy these answers/,$d' >> notes/lab-11-notes.md
-tail -n 20 notes/lab-11-notes.md
-```
-(Assumes this report is saved as `labs/lab-11-cicd/README.md`, which is where the lab's directory structure puts it.)
-
-> 📸 **Screenshot 43 — notes/lab-11-notes.md containing the path, Step 15 answer, Step 19 answer and review answers**
->
-> ![Screenshot 43](screenshots/43-notes.png)
-
----
-
-## 14. Clean-up Script, Snapshot and Preparation for Lab 12
-
-### 14.1 KEEP and CLEAN UP
+### 12.1 KEEP and CLEAN UP
 
 | KEEP (consumed by Lab 12) | CLEAN UP |
 |---|---|
@@ -2362,8 +2487,8 @@ tail -n 20 notes/lab-11-notes.md
 | `source/usms-enrolment-src.zip` | `usms-probe-delete-me` — deleted by the probe (delete by hand if it survived) |
 | `usms-codebuild-role` + `USMSCodeBuildBase` | `labs/.../app/dist/` — git-ignored, regenerated every build |
 | `usms-codepipeline-role` + `USMSCodePipelineBase` | `outputs/lab-11-*` — keep until the report is written |
-| `usms-enrolment-build`, `usms-enrolment-pipeline` | |
-| `labs/lab-11-cicd/app/`, packer, runner, verify script, `configs/lab-11.env` | |
+| `usms-enrolment-build`, `usms-enrolment-pipeline` | None. Both resources are used in Lab 12. |
+| `labs/lab-11-cicd/app/`, packer, runner, verify script, `configs/lab-11.env` | None. Keep the source, scripts, and config for Lab 12. |
 
 Check the probe project did not survive:
 ```bash
@@ -2371,10 +2496,11 @@ aws codebuild list-projects --output text | tr '\t' '\n' | grep -x usms-probe-de
   && aws codebuild delete-project --name usms-probe-delete-me \
   || echo "probe project not present - nothing to clean"
 ```
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 13-14-33.png>)
 
-### 14.2 End-of-course cleanup script — create it, **DO NOT RUN IT NOW**
+### 12.2 End-of-course cleanup script - create it, **DO NOT RUN IT NOW**
 
-> ⚠️ **Read before running any delete command** — *Deletes:* the pipeline, build project, both roles, both policies, every object version in `usms-pipeline-artifacts`, then the bucket. *Depends on it:* all of Lab 12. *Reversible:* No. *Run only at the end of the course.*
+> **Read before running any delete command** - *Deletes:* the pipeline, build project, both roles, both policies, every object version in `usms-pipeline-artifacts`, then the bucket. *Depends on it:* all of Lab 12. *Reversible:* No. *Run only at the end of the course.*
 
 ```bash
 cat > scripts/cleanup/lab-11-cleanup.sh << 'EOF'
@@ -2464,11 +2590,9 @@ git add scripts/cleanup/lab-11-cleanup.sh && git commit -m "Lab 11: end-of-cours
 
 End-of-course run order: `lab-12` → **`lab-11`** → `lab-10` → `lab-09` → `lab-08` → `lab-07` → `lab-06` → `lab-05` → `lab-04` → `lab-03` → `lab-02`.
 
-> 📸 **Screenshot 44 — cleanup script created: "syntax OK - do NOT run it"**
->
-> ![Screenshot 44](screenshots/44-cleanup-script.png)
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 13-15-41.png>)
 
-### 14.3 Architecture now
+### 12.3 Architecture now
 
 ```
   source tree ──> S3 (versioned) ──> CodePipeline ──> CodeBuild ──> artifact in S3
@@ -2481,7 +2605,7 @@ End-of-course run order: `lab-12` → **`lab-11`** → `lab-10` → `lab-09` →
                                          image: still the placeholder, until Lab 12
 ```
 
-### 14.4 What Lab 12 will consume
+### 12.4 What Lab 12 will consume
 
 | Artefact | From | How Lab 12 uses it |
 |---|---|---|
@@ -2497,7 +2621,7 @@ End-of-course run order: `lab-12` → **`lab-11`** → `lab-10` → `lab-09` →
 
 **The thing to be careful about:** `update-pipeline` **replaces the whole document**. Always get → modify → put; putting only the new stage silently deletes the Source and Build stages. Same family as `put-bucket-notification-configuration`, `update-assume-role-policy`, `put-bucket-policy`, `put-bucket-tagging`.
 
-### 14.5 Pre-session checks
+### 12.5 Pre-session checks
 
 ```bash
 cd "$COURSE_ROOT"
@@ -2509,46 +2633,43 @@ grep -c '^export' configs/lab-11.env              # 26
 docker info >/dev/null 2>&1 && echo "docker reachable"
 ```
 
-> 📸 **Screenshot 45 — pre-session checks for Lab 12**
->
-> ![Screenshot 45](screenshots/45-presession-checks.png)
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 13-17-09.png>)
 
-### 14.6 Snapshot before finishing
+### 12.6 Snapshot before finishing
+
+Floci 2.3.0 lacks the snapshot API. Archive the persisted data while the container is stopped, then start it again.
 
 ```bash
-floci snapshot save lab-11-complete
-floci snapshot list
-```
-If `floci snapshot` is not available (stop Floci first so no half-written file is archived):
-```bash
-./scripts/setup/floci-down.sh
-tar -czf ~/floci-data-lab-11.tar.gz -C ~ floci-data
-./scripts/setup/floci-up.sh
-ls -lh ~/floci-data-lab-11.tar.gz
+(
+  docker compose stop floci || exit 1
+  trap 'docker compose start floci' EXIT
+  umask 077
+  tar -czf ~/floci-data-lab-11.tar.gz -C ~ floci-data || exit 1
+  tar -tzf ~/floci-data-lab-11.tar.gz >/dev/null || exit 1
+  ls -lh ~/floci-data-lab-11.tar.gz
+)
 ```
 
-> 📸 **Screenshot 46 — snapshot saved (or tar archive listed)**
->
-> ![Screenshot 46](screenshots/46-snapshot.png)
+![alt text](<../../screenshots_lab-10_to_lab-13/Screenshot from 2026-11-23 13-19-38.png>)
 
-### 14.7 Read-ahead notes (five minutes each)
+### 12.7 Read-ahead notes (five minutes each)
 
 - **Tag vs digest:** a tag (`:stable-alpine`) can be moved to different bytes; a digest (`@sha256:…`) cannot. A production task definition should name a **digest** so a deployment is exactly reproducible and rollback means the same bytes; the cost is readability and that "just pull the latest patch" no longer happens automatically — every change needs a new task definition revision.
 - **ECS deploy action:** it takes the service's *current* task definition, swaps only the `image` of the container named in `imagedefinitions.json`, registers a new revision and updates the service. It can express **image changes only**; CPU/memory, environment variables, ports, roles, log config or adding containers need a task-definition change by other means (or a CodeDeploy/`taskdef.json` workflow).
-- **`privilegedMode`:** runs the build container privileged so the Docker daemon can run inside it (`docker build`). A privileged container has near-host-level capabilities, so whoever can change the buildspec or trigger the build can do far more than build — control who can push source and start builds.
+- **`privilegedMode`:** runs the build container privileged so the Docker daemon can run inside it (`docker build`). A privileged container has near-host-level capabilities, so whoever can change the buildspec or trigger the build can do far more than build - control who can push source and start builds.
 
 ---
 
-## 15. Reflection and Conclusion
+## 13. Reflection and Conclusion
 
 ### 15.1 Reflection
-At the start of this practical, changing the enrolment service meant typing a command, and the record of what changed was my shell history. At the end, changing it means editing a file, packaging it and uploading it — and the record is an **S3 version ID**, a **build ID**, a **pipeline execution ID** and an **artifact** whose `build-metadata.json` links all three. That chain is the deliverable; the pipeline is just the machine that maintains it.
+At the start of this practical, changing the enrolment service meant typing a command, and the record of what changed was my shell history. At the end, changing it means editing a file, packaging it and uploading it - and the record is an **S3 version ID**, a **build ID**, a **pipeline execution ID** and an **artifact** whose `build-metadata.json` links all three. That chain is the deliverable; the pipeline is just the machine that maintains it.
 
-Two moments stood out. **Step 18**, where handing the project to the pipeline broke the ability to run it directly — a real trade-off made visible rather than a setting flipped unnoticed. **Step 19**, where the proof that the pipeline worked was not a green status but the contents of a zip file: *status is reporting; contents are evidence.* The deliberate failure in Step 20 taught the diagnostic path I will keep using — **stage → build → phase → command** — and the habit of validating locally before pushing.
+Two moments stood out. **Step 18**, where handing the project to the pipeline broke the ability to run it directly - a real trade-off made visible rather than a setting flipped unnoticed. **Step 19**, where the proof that the pipeline worked was not a green status but the contents of a zip file: *status is reporting; contents are evidence.* The deliberate failure in Step 20 taught the diagnostic path I will keep using - **stage → build → phase → command** - and the habit of validating locally before pushing.
 
-Challenges faced: `____________________________________________`
+**Challenges faced.** Rerunning the setup failed because the results build project already existed. Floci also reported successful builds even when the expected ZIPs were missing from S3. During the deliberate smoke-test failure, Floci reported success, so I had to verify the failure locally. The snapshot commands also failed on my Floci version.
 
-How I resolved them: `____________________________________________`
+**How I resolved them.** I changed the setup to update the existing project on reruns. I downloaded the exact S3 source versions, ran the buildspecs locally, and uploaded the verified ZIPs for the lab checks. For the deliberate failure, I confirmed that the health check failed and ran the `finally` commands with the captured exit code. To back up the lab, I stopped Floci, archived its persisted data, restarted it, and confirmed the enrolment pipeline was still available.
 
 ### 15.2 Conclusion
 I built a two-stage CI/CD pipeline (S3 Source → CodeBuild Build) for the USMS enrolment service on Floci (Path `___`): a versioned artifact bucket (proved, not assumed), a `buildspec.yml` living in the source tree, least-privilege CodeBuild and CodePipeline roles with a scoped `iam:PassRole`, a CodeBuild project converted to a `CODEPIPELINE` source, a local buildspec runner, and a verification script. I proved end to end that a change to `VERSION` (r3 → r4 → r5) travelled through the pipeline into the build artifact, diagnosed a deliberate `PRE_BUILD` failure, and completed the five exercises, including the `imagedefinitions.json` contract that Lab 12's Deploy stage will consume.
