@@ -1,0 +1,10 @@
+.git
+.gitignore
+Dockerfile
+.dockerignore
+buildspec.yml
+tests/
+src/
+config/
+VERSION
+*.bak

@@ -1,0 +1,15 @@
+{
+  "name": "usms-enrolment-build",
+  "environment": {
+    "type": "LINUX_CONTAINER",
+    "image": "aws/codebuild/standard:7.0",
+    "computeType": "BUILD_GENERAL1_SMALL",
+    "privilegedMode": true,
+    "environmentVariables": [
+      { "name": "USMS_PROJECT",   "value": "USMS",           "type": "PLAINTEXT" },
+      { "name": "USMS_SERVICE",   "value": "enrolment",      "type": "PLAINTEXT" },
+      { "name": "IMAGE_REPO_URI", "value": "000000000000.dkr.ecr.us-east-1.localhost:4566/usms-enrolment",     "type": "PLAINTEXT" },
+      { "name": "AWS_REGION_COURSE", "value": "us-east-1",   "type": "PLAINTEXT" }
+    ]
+  }
+}

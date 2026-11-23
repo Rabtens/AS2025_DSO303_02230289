@@ -34,3 +34,6 @@ Thumbs.db
 .claude/settings.local.json
 labs/lab-11-cicd/app/dist/
 labs/lab-11-cicd/app-results/dist/
+labs/lab-11-cicd-pipeline/lab-11-cicd/app/dist/
+labs/lab-11-cicd-pipeline/lab-11-cicd/app-results/dist/
+docker-compose.yml.bak-*

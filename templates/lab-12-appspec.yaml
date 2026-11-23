@@ -1,0 +1,27 @@
+# CodeDeploy application specification for a blue/green ECS deployment.
+# CONCEPTUAL in this course: Floci provides no CodeDeploy. This document is
+# written, read and validated; it is not executed.
+#
+# <TASK_DEFINITION> is a placeholder CodeDeploy substitutes at deployment time
+# with the revision the pipeline registered. It is one of the few places in AWS
+# where a literal angle-bracket placeholder is correct rather than a mistake.
+version: 0.0
+Resources:
+  - TargetService:
+      Type: AWS::ECS::Service
+      Properties:
+        TaskDefinition: "<TASK_DEFINITION>"
+        LoadBalancerInfo:
+          ContainerName: "enrolment-api"
+          ContainerPort: 80
+        PlatformVersion: "LATEST"
+Hooks:
+  # Each hook names a Lambda function that returns Succeeded or Failed.
+  # AfterAllowTestTraffic is the one that earns blue/green its keep: it runs
+  # against the new task set through the TEST listener, before any production
+  # traffic reaches it.
+  - BeforeInstall: "usms-deploy-hook-before-install"
+  - AfterInstall: "usms-deploy-hook-after-install"
+  - AfterAllowTestTraffic: "usms-deploy-hook-smoke-test"
+  - BeforeAllowTraffic: "usms-deploy-hook-before-traffic"
+  - AfterAllowTraffic: "usms-deploy-hook-after-traffic"

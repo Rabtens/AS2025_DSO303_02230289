@@ -23,7 +23,7 @@ services:
       # allocated" failure on a shared or busy machine.
       # Uncomment the line you need; the ranges are capped in `environment:`
       # below so each stays small.
-      # - "5100-5104:5100-5104"     # ECR registries        (Lab 03+)
+      # ECR registry sidecars bind their own host ports (5100–5104).
       # - "6379-6383:6379-6383"     # ElastiCache proxies   (later)
       # - "7001-7005:7001-7005"     # RDS proxies           (later)
       # - "9200-9209:9200-9209"     # Lambda Runtime API    (Lab 05)

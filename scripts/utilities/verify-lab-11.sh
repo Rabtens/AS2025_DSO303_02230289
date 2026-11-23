@@ -112,7 +112,7 @@ check "templates contain no unexpanded variables" "! grep -q '[\$]' templates/la
 check "all four policy documents are valid JSON" \
   "python3 -m json.tool policies/trust-codebuild.json && python3 -m json.tool policies/trust-codepipeline.json && python3 -m json.tool policies/usms-codebuild-policy.json && python3 -m json.tool policies/usms-codepipeline-policy.json"
 check "no secret is tracked"                      "! git ls-files | grep -q '^outputs/'"
-check "build output dist/ is git-ignored"         "git check-ignore -q labs/lab-11-cicd/app/dist/build-metadata.json"
+check "build output dist/ is git-ignored"         'git check-ignore -q "$(realpath --relative-to=. labs/lab-11-cicd/app)/dist/build-metadata.json"'
 
 echo; echo "PASS=$PASS  FAIL=$FAIL"
 if [ "$FAIL" -ne 0 ]; then

@@ -2662,7 +2662,7 @@ Floci 2.3.0 lacks the snapshot API. Archive the persisted data while the contain
 
 ## 13. Reflection and Conclusion
 
-### 15.1 Reflection
+### 13.1 Reflection
 At the start of this practical, changing the enrolment service meant typing a command, and the record of what changed was my shell history. At the end, changing it means editing a file, packaging it and uploading it - and the record is an **S3 version ID**, a **build ID**, a **pipeline execution ID** and an **artifact** whose `build-metadata.json` links all three. That chain is the deliverable; the pipeline is just the machine that maintains it.
 
 Two moments stood out. **Step 18**, where handing the project to the pipeline broke the ability to run it directly - a real trade-off made visible rather than a setting flipped unnoticed. **Step 19**, where the proof that the pipeline worked was not a green status but the contents of a zip file: *status is reporting; contents are evidence.* The deliberate failure in Step 20 taught the diagnostic path I will keep using - **stage → build → phase → command** - and the habit of validating locally before pushing.
@@ -2671,12 +2671,13 @@ Two moments stood out. **Step 18**, where handing the project to the pipeline br
 
 **How I resolved them.** I changed the setup to update the existing project on reruns. I downloaded the exact S3 source versions, ran the buildspecs locally, and uploaded the verified ZIPs for the lab checks. For the deliberate failure, I confirmed that the health check failed and ran the `finally` commands with the captured exit code. To back up the lab, I stopped Floci, archived its persisted data, restarted it, and confirmed the enrolment pipeline was still available.
 
-### 15.2 Conclusion
-I built a two-stage CI/CD pipeline (S3 Source → CodeBuild Build) for the USMS enrolment service on Floci (Path `___`): a versioned artifact bucket (proved, not assumed), a `buildspec.yml` living in the source tree, least-privilege CodeBuild and CodePipeline roles with a scoped `iam:PassRole`, a CodeBuild project converted to a `CODEPIPELINE` source, a local buildspec runner, and a verification script. I proved end to end that a change to `VERSION` (r3 → r4 → r5) travelled through the pipeline into the build artifact, diagnosed a deliberate `PRE_BUILD` failure, and completed the five exercises, including the `imagedefinitions.json` contract that Lab 12's Deploy stage will consume.
+
+### 13.2 Conclusion
+I built a two-stage CI/CD pipeline (S3 Source → CodeBuild Build) for the USMS enrolment service on Floci (Path `A`): a versioned artifact bucket (proved, not assumed), a `buildspec.yml` living in the source tree, least-privilege CodeBuild and CodePipeline roles with a scoped `iam:PassRole`, a CodeBuild project converted to a `CODEPIPELINE` source, a local buildspec runner, and a verification script. I proved end to end that a change to `VERSION` (r3 → r4 → r5) travelled through the pipeline into the build artifact, diagnosed a deliberate `PRE_BUILD` failure, and completed the five exercises, including the `imagedefinitions.json` contract that Lab 12's Deploy stage will consume.
 
 ---
 
-## 16. References
+## 14. References
 
 1. AWS CodePipeline User Guide — pipeline structure reference; Amazon S3 source action; CodeBuild build action; input and output artifacts; the CodePipeline service role; change-detection methods for an S3 source.
 2. AWS CodeBuild User Guide — build specification reference; environment variables in build environments; build phase transitions; Docker images provided by CodeBuild; create a service role; use CodePipeline with CodeBuild.
