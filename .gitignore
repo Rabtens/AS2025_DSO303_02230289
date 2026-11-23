@@ -33,3 +33,4 @@ Thumbs.db
 .idea/
 .claude/settings.local.json
 labs/lab-11-cicd/app/dist/
+labs/lab-11-cicd/app-results/dist/

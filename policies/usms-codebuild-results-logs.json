@@ -1,0 +1,14 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "WriteResultsBuildLogs",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": [
+        "arn:aws:logs:us-east-1:000000000000:log-group:/aws/codebuild/usms-results-build",
+        "arn:aws:logs:us-east-1:000000000000:log-group:/aws/codebuild/usms-results-build:*"
+      ]
+    }
+  ]
+}

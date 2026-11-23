@@ -1,0 +1,7 @@
+[
+  {
+    "Id": "StartUsmsEnrolmentPipeline",
+    "Arn": "arn:aws:codepipeline:us-east-1:000000000000:usms-enrolment-pipeline",
+    "RoleArn": "arn:aws:iam::000000000000:role/usms-events-pipeline-role"
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "StartOnlyTheEnrolmentPipeline",
+      "Effect": "Allow",
+      "Action": "codepipeline:StartPipelineExecution",
+      "Resource": "arn:aws:codepipeline:us-east-1:000000000000:usms-enrolment-pipeline"
+    }
+  ]
+}

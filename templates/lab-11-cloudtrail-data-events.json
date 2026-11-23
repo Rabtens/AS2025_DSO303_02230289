@@ -1,0 +1,11 @@
+[
+  {
+    "Name": "USMS pipeline source object writes",
+    "FieldSelectors": [
+      { "Field": "eventCategory", "Equals": ["Data"] },
+      { "Field": "resources.type", "Equals": ["AWS::S3::Object"] },
+      { "Field": "resources.ARN", "Equals": ["arn:aws:s3:::usms-pipeline-artifacts/source/usms-enrolment-src.zip"] },
+      { "Field": "readOnly", "Equals": ["false"] }
+    ]
+  }
+]
