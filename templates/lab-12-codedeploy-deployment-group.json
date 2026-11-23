@@ -1,0 +1,56 @@
+{
+  "applicationName": "usms-enrolment-app",
+  "deploymentGroupName": "usms-enrolment-dg",
+  "serviceRoleArn": "arn:aws:iam::000000000000:role/usms-codedeploy-role",
+  "deploymentConfigName": "CodeDeployDefault.ECSLinear10PercentEvery1Minutes",
+  "deploymentStyle": {
+    "deploymentType": "BLUE_GREEN",
+    "deploymentOption": "WITH_TRAFFIC_CONTROL"
+  },
+  "blueGreenDeploymentConfiguration": {
+    "terminateBlueInstancesOnDeploymentSuccess": {
+      "action": "TERMINATE",
+      "terminationWaitTimeInMinutes": 5
+    },
+    "deploymentReadyOption": {
+      "actionOnTimeout": "CONTINUE_DEPLOYMENT"
+    }
+  },
+  "autoRollbackConfiguration": {
+    "enabled": true,
+    "events": [
+      "DEPLOYMENT_FAILURE",
+      "DEPLOYMENT_STOP_ON_ALARM"
+    ]
+  },
+  "ecsServices": [
+    {
+      "clusterName": "usms-ecs-cluster",
+      "serviceName": "usms-enrolment-svc"
+    }
+  ],
+  "loadBalancerInfo": {
+    "targetGroupPairInfoList": [
+      {
+        "targetGroups": [
+          {
+            "name": "usms-enrolment-tg"
+          },
+          {
+            "name": "usms-enrolment-tg-green"
+          }
+        ],
+        "prodTrafficRoute": {
+          "listenerArns": [
+            "arn:aws:elasticloadbalancing:us-east-1:000000000000:listener/app/usms-enrolment-alb/a37770efd20c447f/23c20c8d1d744a29"
+          ]
+        },
+        "testTrafficRoute": {
+          "listenerArns": [
+            "arn:aws:elasticloadbalancing:us-east-1:000000000000:listener/app/usms-enrolment-alb/a37770efd20c447f/b190c577c34c4628"
+          ]
+        }
+      }
+    ]
+  }
+}
