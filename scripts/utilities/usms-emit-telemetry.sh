@@ -100,6 +100,19 @@ else
   echo "  trace   SKIPPED (X-Ray unavailable on this build) $TRACE_ID"
 fi
 
+# Exercise 1: a pure-JSON line so a JSON-dialect metric filter can extract "seconds"
+python3 - "$NOW_MS" "$FACULTY" "$SECONDS_TAKEN" "$TRACE_ID" << 'PYJ' > outputs/lab-13-emit-json-event.json
+import json, sys
+ms, fac, secs, tid = int(sys.argv[1]) + 1, sys.argv[2], float(sys.argv[3]), sys.argv[4]
+msg = json.dumps({"source": "usms", "event": "transcript.processed",
+                  "faculty": fac, "seconds": secs, "trace_id": tid}, separators=(",", ":"))
+print(json.dumps([{"timestamp": ms, "message": msg}]))
+PYJ
+aws logs put-log-events --log-group-name "$GROUP" --log-stream-name "$STREAM" \
+  --log-events file://outputs/lab-13-emit-json-event.json \
+  --query 'rejectedLogEventsInfo' --output json >/dev/null \
+  && echo "  jsonlog ok   $GROUP"
+
 printf '%s %s emitter/%s\n' "$TRACE_ID" "$SEG_ID" "$FACULTY" >> outputs/lab-13-trace-ids.txt
 echo
 echo "trace id: $TRACE_ID"

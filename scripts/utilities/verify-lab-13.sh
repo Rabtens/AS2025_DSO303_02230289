@@ -55,7 +55,7 @@ mf_group() {   # $1 = filter name
 
 metric_dims() {   # $1 = metric name; prints one line per published dimension set
   aws cloudwatch list-metrics --namespace "$NS" --metric-name "$1" \
-    --query 'Metrics[].join(`,`, Dimensions[].Name) || `NONE`' --output text
+    --query 'Metrics[].[join(`,`, Dimensions[].Name || `[]`) || `"NONE"`]' --output text
 }
 
 obs_policy_arn() {
@@ -84,6 +84,16 @@ alias_version() {
 alarm_field() {   # $1 = alarm name, $2 = JMESPath field
   aws cloudwatch describe-alarms --alarm-names "$1" \
     --query "MetricAlarms[0].$2" --output text
+}
+
+alarm_has_no_forced_lab_state() {
+  local alarm
+  alarm=$(alarm_field "$1" '[StateValue, StateReason]') || return 1
+  case "$alarm" in
+    ALARM$'\t'"Lab 13 Step 20:"*|ALARM$'\t'"Lab 13 Step 21:"*) return 1 ;;
+    OK$'\t'*|INSUFFICIENT_DATA$'\t'*|ALARM$'\t'*) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 composite_rule() {
@@ -170,7 +180,7 @@ check "namespace $NS has metrics" \
 check "TranscriptsProcessed published WITH dimensions" \
   'metric_dims TranscriptsProcessed | grep -q Faculty'
 check "TranscriptsProcessed ALSO published with none  (the total)" \
-  'metric_dims TranscriptsProcessed | grep -q NONE'
+  'metric_dims TranscriptsProcessed | grep -qx NONE'
 check "TranscriptLagSeconds exists" \
   'test "$(aws cloudwatch list-metrics --namespace "$NS" --metric-name TranscriptLagSeconds --query "length(Metrics)" --output text)" != "0"'
 
@@ -214,15 +224,15 @@ check "composite alarm $A_COMP exists" \
 check "composite rule names BOTH child alarms" \
   'composite_rule | grep -q "$A_LAG" && composite_rule | grep -q "$A_SILENCE"'
 check "no alarm is left stuck in ALARM from Step 20 or 21" \
-  'test "$(alarm_field "$A_LAG" StateValue)" != "ALARM" && test "$(alarm_field "$A_SILENCE" StateValue)" != "ALARM"'
+  'alarm_has_no_forced_lab_state "$A_LAG" && alarm_has_no_forced_lab_state "$A_SILENCE"'
 
 echo "== Dashboard =="
 check "dashboard $DASH exists" \
   'aws cloudwatch list-dashboards --query "DashboardEntries[].DashboardName" --output text | grep -q "$DASH"'
 check "dashboard body is valid JSON" \
   'dashboard_body | python3 -m json.tool'
-check "dashboard has 5 widgets" \
-  'test "$(dashboard_widgets)" -eq 5'
+check "dashboard has 6 widgets" \
+  'test "$(dashboard_widgets)" -eq 6'
 check "no two widgets overlap" \
   'dashboard_no_overlap'
 
