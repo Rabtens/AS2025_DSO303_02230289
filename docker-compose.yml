@@ -9,7 +9,7 @@ name: floci-course
 
 services:
   floci:
-    image: floci/floci:2.3.0
+    image: floci/floci:2.4.0
     # Named "floci" on purpose: a stray `floci start` then fails loudly with a
     # name conflict instead of quietly shadowing this container with an empty one.
     container_name: floci
