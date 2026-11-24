@@ -1,0 +1,13 @@
+{
+  "RuleName": "usms-transcripts-sampling",
+  "ResourceARN": "*",
+  "Priority": 1000,
+  "FixedRate": 0.10,
+  "ReservoirSize": 2,
+  "ServiceName": "usms-transcript-notifier",
+  "ServiceType": "*",
+  "Host": "*",
+  "HTTPMethod": "*",
+  "URLPath": "*",
+  "Version": 1
+}

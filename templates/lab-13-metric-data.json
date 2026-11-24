@@ -1,0 +1,39 @@
+[
+  {
+    "MetricName": "TranscriptsProcessed",
+    "Timestamp": "2026-11-24T09:28:02Z",
+    "Unit": "Count",
+    "Value": 3,
+    "Dimensions": [
+      { "Name": "Faculty", "Value": "engineering" },
+      { "Name": "Stage",   "Value": "notify" }
+    ]
+  },
+  {
+    "MetricName": "TranscriptLagSeconds",
+    "Timestamp": "2026-11-24T09:28:02Z",
+    "Unit": "Seconds",
+    "Value": 0.42,
+    "Dimensions": [
+      { "Name": "Stage", "Value": "notify" }
+    ]
+  },
+  {
+    "MetricName": "TranscriptLagSeconds",
+    "Timestamp": "2026-11-24T09:28:02Z",
+    "Unit": "Seconds",
+    "Value": 1.91,
+    "Dimensions": [
+      { "Name": "Stage", "Value": "notify" }
+    ]
+  },
+  {
+    "MetricName": "EdgeDenyCount",
+    "Timestamp": "2026-11-24T09:28:02Z",
+    "Unit": "Count",
+    "Value": 1,
+    "Dimensions": [
+      { "Name": "Stage", "Value": "viewer-request" }
+    ]
+  }
+]

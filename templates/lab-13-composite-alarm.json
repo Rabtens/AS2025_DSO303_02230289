@@ -1,0 +1,7 @@
+{
+  "AlarmName": "usms-transcript-pipeline-down",
+  "AlarmDescription": "The USMS transcript pipeline is failing or silent. One incident, one page.",
+  "AlarmRule": "ALARM(\"usms-transcript-lag-high\") OR ALARM(\"usms-notify-silence\")",
+  "ActionsEnabled": true,
+  "Tags": [{"Key": "Project", "Value": "USMS"}, {"Key": "Lab", "Value": "08"}]
+}

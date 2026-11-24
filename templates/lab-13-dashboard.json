@@ -1,0 +1,73 @@
+{
+  "widgets": [
+    {
+      "type": "text",
+      "x": 0, "y": 0, "width": 24, "height": 2,
+      "properties": {
+        "markdown": "# USMS - transcript delivery\nOwner: platform team · Runbook: notes/lab-13-runbook.md · Alarms page the composite alarm only."
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 2, "width": 12, "height": 6,
+      "properties": {
+        "title": "Transcripts processed, by faculty",
+        "region": "us-east-1",
+        "stat": "Sum",
+        "period": 300,
+        "view": "timeSeries",
+        "stacked": false,
+        "metrics": [
+          [ "USMS/Application", "TranscriptsProcessed", "Faculty", "science", "Stage", "notify" ],
+          [ "USMS/Application", "TranscriptsProcessed", "Faculty", "engineering", "Stage", "notify" ]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 2, "width": 12, "height": 6,
+      "properties": {
+        "title": "Notification latency - max and average",
+        "region": "us-east-1",
+        "period": 60,
+        "view": "timeSeries",
+        "metrics": [
+          [ "USMS/Application", "TranscriptLagSeconds", "Stage", "notify", { "stat": "Maximum", "label": "max" } ],
+          [ "USMS/Application", "TranscriptLagSeconds", "Stage", "notify", { "stat": "Average", "label": "avg" } ]
+        ],
+        "annotations": {
+          "horizontal": [
+            { "label": "alarm threshold", "value": 2 }
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 8, "width": 8, "height": 4,
+      "properties": {
+        "title": "Notifications in the last 5 minutes",
+        "region": "us-east-1",
+        "stat": "Sum",
+        "period": 300,
+        "view": "singleValue",
+        "metrics": [
+          [ "USMS/Application", "NotifyCount" ],
+          [ "USMS/Application", "CentralErrorCount" ]
+        ]
+      }
+    },
+    {
+      "type": "alarm",
+      "x": 8, "y": 8, "width": 16, "height": 4,
+      "properties": {
+        "title": "Pipeline alarms",
+        "alarms": [
+          "arn:aws:cloudwatch:us-east-1:000000000000:alarm:usms-transcript-pipeline-down",
+          "arn:aws:cloudwatch:us-east-1:000000000000:alarm:usms-transcript-lag-high",
+          "arn:aws:cloudwatch:us-east-1:000000000000:alarm:usms-notify-silence"
+        ]
+      }
+    }
+  ]
+}
